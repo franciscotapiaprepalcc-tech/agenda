@@ -324,11 +324,12 @@
         return Number(localStorage.getItem('agenda_javier_last_mod_v4') || 0);
       });
 
-      // Referencias para sincronización automática cada minuto sin cierres obsoletos (stale closures)
+      // Referencias para sincronización automática cada minuto sin cierres obsoletos
       const compromisosRef = useRef(compromisos);
       const vocabularioRef = useRef(vocabulario);
       const ultimaModRef = useRef(ultimaModificacionLocal);
       const syncEnCursoRef = useRef(false);
+      const esperandoPrimerTokenRef = useRef(false);
 
       useEffect(() => { compromisosRef.current = compromisos; }, [compromisos]);
       useEffect(() => { vocabularioRef.current = vocabulario; }, [vocabulario]);
@@ -367,12 +368,14 @@
       const [mensajeSync, setMensajeSync] = useState('Guardado en Base de Datos Local (IndexedDB)');
       const [segundosParaSync, setSegundosParaSync] = useState(60);
       const [modalSyncAbierto, setModalSyncAbierto] = useState(false);
+      const [esPrimeraConfiguracion, setEsPrimeraConfiguracion] = useState(false);
       const [tabModalSync, setTabModalSync] = useState('github');
 
-      // Guardar syncConfig automáticamente cada vez que el usuario introduce o edita el token
+      // Guardar syncConfig automáticamente en localStorage e IndexedDB cada vez que se edita el token
       useEffect(() => {
         try {
           localStorage.setItem('agenda_javier_sync_cfg_v4', JSON.stringify(syncConfig));
+          guardarEnBDLocal('agenda_javier_sync_cfg_v4', syncConfig);
         } catch (e) {}
       }, [syncConfig]);
 
@@ -416,7 +419,7 @@
         setTimeout(() => setNotificacion(null), 3400);
       };
 
-      // 1. Cargar Base de Datos Local (IndexedDB) al iniciar
+      // 1. Cargar Base de Datos Local (IndexedDB) y verificar si es la primera vez en una computadora nueva
       useEffect(() => {
         const inicializar = async () => {
           let compGuardados = await leerDeBDLocal('agenda_javier_compromisos_v4', null);
@@ -424,6 +427,7 @@
             compGuardados = await leerDeBDLocal('agenda_javier_compromisos_v3', null);
           }
           const vocabGuardado = await leerDeBDLocal('agenda_javier_vocab_v4', null);
+          const cfgGuardadaIDB = await leerDeBDLocal('agenda_javier_sync_cfg_v4', null);
 
           if (compGuardados && Array.isArray(compGuardados)) {
             setCompromisos(compGuardados);
@@ -440,14 +444,25 @@
             await guardarEnBDLocal('agenda_javier_vocab_v4', VOCABULARIO_INICIAL);
           }
 
+          let tokenDetectado = syncConfig.ghToken || (cfgGuardadaIDB && cfgGuardadaIDB.ghToken) || '';
+          if (cfgGuardadaIDB && cfgGuardadaIDB.ghToken && !syncConfig.ghToken) {
+            setSyncConfig((prev) => ({ ...prev, ...cfgGuardadaIDB, autoSync: true }));
+          }
+
           // Revisar si la URL trae configuración de emparejamiento por QR (#pair=...)
+          let vinculadoPorQR = false;
           if (window.location.hash.startsWith('#pair=')) {
             try {
               const b64 = window.location.hash.replace('#pair=', '');
               const decodificado = JSON.parse(base64ToUtf8(b64));
               if (decodificado.syncConfig) {
-                setSyncConfig({ ...decodificado.syncConfig, autoSync: true });
-                localStorage.setItem('agenda_javier_sync_cfg_v4', JSON.stringify({ ...decodificado.syncConfig, autoSync: true }));
+                const cfgQR = { ...decodificado.syncConfig, autoSync: true };
+                setSyncConfig(cfgQR);
+                localStorage.setItem('agenda_javier_sync_cfg_v4', JSON.stringify(cfgQR));
+                await guardarEnBDLocal('agenda_javier_sync_cfg_v4', cfgQR);
+                localStorage.setItem('agenda_javier_setup_v4', 'true');
+                tokenDetectado = cfgQR.ghToken || 'qr';
+                vinculadoPorQR = true;
                 mostrarMensaje('Dispositivo vinculado por QR con sincronización cada minuto');
               }
               if (Array.isArray(decodificado.compromisos)) {
@@ -456,6 +471,16 @@
               }
               window.history.replaceState(null, '', window.location.pathname);
             } catch (e) {}
+          }
+
+          // Si es una computadora/dispositivo nuevo sin token cargado previamente, pedir el token únicamente esta primera vez
+          const yaVioSetupEnEsteEquipo = localStorage.getItem('agenda_javier_setup_v4');
+          if (!tokenDetectado.trim() && !vinculadoPorQR && !yaVioSetupEnEsteEquipo) {
+            setEsPrimeraConfiguracion(true);
+            esperandoPrimerTokenRef.current = true;
+            setTabModalSync('github');
+            setModalSyncAbierto(true);
+            localStorage.setItem('agenda_javier_setup_v4', 'true');
           }
 
           setBdLista(true);
@@ -489,7 +514,7 @@
 
           if (!ghOwner || !ghRepo || !ghToken) {
             setEstadoSync('local');
-            setMensajeSync('BD Local Activa (Ingresa tu Token de GitHub para auto-sincronizar cada minuto)');
+            setMensajeSync('BD Local Activa');
             return;
           }
 
@@ -513,13 +538,15 @@
               if (fileData.content) {
                 datosRemotos = JSON.parse(base64ToUtf8(fileData.content));
               }
+            } else if (getRes.status === 401 || getRes.status === 403) {
+              throw new Error('Token sin permisos o inválido');
             }
 
             const tsRemoto = Number(datosRemotos?.actualizadoEn || 0);
             const tsLocal = Number(ultimaModRef.current || 0);
 
-            // Si es modo 'pull' o 'auto' y el archivo remoto en GitHub es más reciente que el local, descargamos
-            if ((modo === 'pull' || (modo === 'auto' && tsRemoto > tsLocal)) && datosRemotos) {
+            // Si es computadora nueva (tsLocal === 0) o el archivo remoto en GitHub es más reciente, descargamos
+            if ((modo === 'pull' || (modo === 'auto' && (tsRemoto > tsLocal || tsLocal === 0))) && datosRemotos) {
               if (Array.isArray(datosRemotos.compromisos)) {
                 setCompromisos(datosRemotos.compromisos);
                 compromisosRef.current = datosRemotos.compromisos;
@@ -530,29 +557,43 @@
                 vocabularioRef.current = datosRemotos.vocabulario;
                 await guardarEnBDLocal('agenda_javier_vocab_v4', datosRemotos.vocabulario);
               }
-              setUltimaModificacionLocal(tsRemoto);
-              ultimaModRef.current = tsRemoto;
-              localStorage.setItem('agenda_javier_last_mod_v4', String(tsRemoto));
+              const marca = tsRemoto || Date.now();
+              setUltimaModificacionLocal(marca);
+              ultimaModRef.current = marca;
+              localStorage.setItem('agenda_javier_last_mod_v4', String(marca));
 
               setEstadoSync('conectado');
               setSegundosParaSync(60);
               const hora = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-              setMensajeSync(`Auto-Sync GitHub activo (${ghOwner}/${ghRepo}) · Última: ${hora}`);
+              setMensajeSync(`Auto-Sync GitHub (${ghOwner}/${ghRepo}) · Última: ${hora}`);
+
+              // Si era la primera vez en una computadora nueva, cerramos el modal automáticamente al conectar
+              if (esperandoPrimerTokenRef.current) {
+                esperandoPrimerTokenRef.current = false;
+                setEsPrimeraConfiguracion(false);
+                setModalSyncAbierto(false);
+                mostrarMensaje('Token verificado y agenda sincronizada automáticamente');
+              }
               syncEnCursoRef.current = false;
               return;
             }
 
-            // Si es 'auto' y ambos están exactamente iguales, no hace falta escribir un commit redundante
+            // Si ambos están iguales, solo actualizamos reloj
             if (modo === 'auto' && datosRemotos && tsRemoto === tsLocal && tsLocal > 0) {
               setEstadoSync('conectado');
               setSegundosParaSync(60);
               const hora = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-              setMensajeSync(`Auto-Sync al día (${ghOwner}/${ghRepo}) · Verificado: ${hora}`);
+              setMensajeSync(`Auto-Sync al día (${ghOwner}/${ghRepo}) · ${hora}`);
+              if (esperandoPrimerTokenRef.current) {
+                esperandoPrimerTokenRef.current = false;
+                setEsPrimeraConfiguracion(false);
+                setModalSyncAbierto(false);
+              }
               syncEnCursoRef.current = false;
               return;
             }
 
-            // Si es 'push', o si los datos locales son más nuevos, o si aún no existe agenda-datos.json en GitHub, subimos
+            // Subir a GitHub cuando hay cambios locales nuevos o cuando el archivo aún no existe
             const nuevoTimestamp = tsLocal > 0 ? tsLocal : Date.now();
             const paquete = {
               actualizadoEn: nuevoTimestamp,
@@ -581,79 +622,41 @@
               setEstadoSync('conectado');
               setSegundosParaSync(60);
               const hora = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-              setMensajeSync(`Auto-Sync GitHub guardado (${ghOwner}/${ghRepo}) · ${hora}`);
+              setMensajeSync(`Auto-Sync GitHub (${ghOwner}/${ghRepo}) · ${hora}`);
+
+              if (esperandoPrimerTokenRef.current) {
+                esperandoPrimerTokenRef.current = false;
+                setEsPrimeraConfiguracion(false);
+                setModalSyncAbierto(false);
+                mostrarMensaje('Token guardado y sincronización automática activada');
+              }
             } else {
               throw new Error('Token o repositorio inválido');
             }
           } catch (err) {
             setEstadoSync('error');
-            setMensajeSync('Guardado en BD Local (Revisa tu Token o nombre de usuario/repo en GitHub)');
-          } finally {
-            syncEnCursoRef.current = false;
-          }
-        }
-
-        // MODO B: GOOGLE SHEETS / DRIVE
-        if (syncConfig.metodo === 'google') {
-          const url = (syncConfig.googleScriptUrl || '').trim();
-          if (!url) {
-            setEstadoSync('local');
-            return;
-          }
-          syncEnCursoRef.current = true;
-          setEstadoSync('sincronizando');
-          try {
-            if (modo === 'pull' || modo === 'auto') {
-              const res = await fetch(`${url}?action=read&_t=${Date.now()}`);
-              const data = await res.json();
-              if (Array.isArray(data.compromisos)) {
-                setCompromisos(data.compromisos);
-                await guardarEnBDLocal('agenda_javier_compromisos_v4', data.compromisos);
-              }
-            } else {
-              await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({
-                  actualizadoEn: Date.now(),
-                  compromisos: datosCompromisos,
-                  vocabulario: datosVocab
-                })
-              });
-            }
-            setEstadoSync('conectado');
-            setSegundosParaSync(60);
-            const hora = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-            setMensajeSync(`Auto-Sync Google activo · ${hora}`);
-          } catch (e) {
-            setEstadoSync('error');
-            setMensajeSync('Guardado localmente (Error conectando Google Script)');
+            setMensajeSync('Guardado en BD Local (Revisa tu Token o nombre de usuario/repo)');
           } finally {
             syncEnCursoRef.current = false;
           }
         }
       }, [syncConfig, detectado]);
 
-      // 3. DISPARADOR AUTOMÁTICO AL INTRODUCIR EL TOKEN DE GITHUB (SIN PRESIONAR BOTÓN)
+      // 3. DISPARADOR AUTOMÁTICO AL INTRODUCIR EL TOKEN DE GITHUB
       useEffect(() => {
         if (!bdLista) return;
         const ghOwner = (syncConfig.ghOwner || detectado.owner || '').trim();
         const ghRepo = (syncConfig.ghRepo || detectado.repo || '').trim();
         const ghToken = (syncConfig.ghToken || '').trim();
 
-        const tokenValido =
-          (syncConfig.metodo === 'github' && ghToken.length >= 15 && ghOwner && ghRepo) ||
-          (syncConfig.metodo === 'google' && syncConfig.googleScriptUrl.trim().length > 15);
+        if (syncConfig.metodo !== 'github' || ghToken.length < 15 || !ghOwner || !ghRepo) return;
 
-        if (!tokenValido) return;
-
-        // Espera breve (600 ms) tras pegar/escribir el token y sincroniza automáticamente
         const timerInmediato = setTimeout(() => {
           sincronizarConNubePropia('auto');
         }, 600);
 
         return () => clearTimeout(timerInmediato);
-      }, [bdLista, syncConfig.ghToken, syncConfig.ghOwner, syncConfig.ghRepo, syncConfig.ghBranch, syncConfig.googleScriptUrl, syncConfig.metodo, sincronizarConNubePropia]);
+      }, [bdLista, syncConfig.ghToken, syncConfig.ghOwner, syncConfig.ghRepo, syncConfig.ghBranch, syncConfig.metodo, sincronizarConNubePropia]);
 
       // 4. TEMPORIZADOR AUTOMÁTICO CADA 60 SEGUNDOS (1 MINUTO) + AL ENFOCAR LA VENTANA
       useEffect(() => {
@@ -662,13 +665,8 @@
         const ghRepo = (syncConfig.ghRepo || detectado.repo || '').trim();
         const ghToken = (syncConfig.ghToken || '').trim();
 
-        const credencialesListas =
-          (syncConfig.metodo === 'github' && ghToken.length >= 15 && ghOwner && ghRepo) ||
-          (syncConfig.metodo === 'google' && syncConfig.googleScriptUrl.trim().length > 15);
+        if (syncConfig.metodo !== 'github' || ghToken.length < 15 || !ghOwner || !ghRepo) return;
 
-        if (!credencialesListas) return;
-
-        // Reloj de cuenta regresiva cada segundo que dispara la sincronización cada 60 segundos exactos
         const intervaloCadaSegundo = setInterval(() => {
           setSegundosParaSync((prev) => {
             if (prev <= 1) {
@@ -685,17 +683,13 @@
         };
 
         window.addEventListener('focus', alVolverALaApp);
-        document.addEventListener('visibilitychange', () => {
-          if (document.visibilityState === 'visible') alVolverALaApp();
-        });
-
         return () => {
           clearInterval(intervaloCadaSegundo);
           window.removeEventListener('focus', alVolverALaApp);
         };
       }, [bdLista, syncConfig, detectado, sincronizarConNubePropia]);
 
-      // Función para guardar cambios locales y subirlos inmediatamente a GitHub
+      // Guardar cambios locales y subirlos inmediatamente a GitHub
       const actualizarYPublicarCompromisos = (nuevosCompromisos, mensajeExito) => {
         const ahora = Date.now();
         setCompromisos(nuevosCompromisos);
@@ -1251,7 +1245,7 @@
             <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 via-indigo-600 to-emerald-500 flex items-center justify-center shadow-md">
-                  <Icon name="database" className="w-5 h-5 text-white" />
+                  <Icon name="calendar" className="w-5 h-5 text-white" />
                 </div>
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
@@ -1259,7 +1253,10 @@
                       Agenda Integral · Javier Tapia
                     </h1>
                     <button
-                      onClick={() => setModalSyncAbierto(true)}
+                      onClick={() => {
+                        setEsPrimeraConfiguracion(false);
+                        setModalSyncAbierto(true);
+                      }}
                       className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold border transition ${
                         estadoSync === 'conectado'
                           ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30'
@@ -1269,20 +1266,20 @@
                           ? 'bg-rose-500/10 text-rose-400 border-rose-500/30'
                           : 'bg-slate-500/10 text-slate-400 border-slate-500/30'
                       }`}
-                      title="Clic para abrir ajustes de sincronización automática"
+                      title={mensajeSync}
                     >
                       <span className={`w-1.5 h-1.5 rounded-full ${estadoSync === 'conectado' ? 'bg-emerald-500' : estadoSync === 'sincronizando' ? 'bg-amber-400 animate-ping' : estadoSync === 'error' ? 'bg-rose-500' : 'bg-indigo-400'}`} />
                       <span>
                         {estadoSync === 'conectado'
-                          ? `Auto-Sync (${segundosParaSync}s)`
+                          ? 'Sincronizado'
                           : estadoSync === 'sincronizando'
                           ? 'Sincronizando...'
-                          : 'Configurar Token GitHub'}
+                          : 'Token GitHub'}
                       </span>
                     </button>
                   </div>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    {mensajeSync}
+                    Arte y Video · Prepa Lázaro Cárdenas · Personal
                   </p>
                 </div>
               </div>
@@ -1331,12 +1328,14 @@
                 </button>
 
                 <button
-                  onClick={() => setModalSyncAbierto(true)}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-bold"
-                  title="Sincronización automática cada minuto"
+                  onClick={() => {
+                    setEsPrimeraConfiguracion(false);
+                    setModalSyncAbierto(true);
+                  }}
+                  className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  title="Configuración de Token y Código QR"
                 >
-                  <Icon name="refresh-cw" className="w-4 h-4" />
-                  <span className="hidden md:inline">Auto-Sync</span>
+                  <Icon name="settings-2" className="w-4 h-4" />
                 </button>
 
                 <button
@@ -1402,119 +1401,81 @@
               })}
             </section>
 
-            {/* VISTA 1: RESUMEN */}
+            {/* VISTA 1: RESUMEN (SIN EL CUADRO DE AUTO-SINCRONIZACIÓN) */}
             {vistaActiva === 'dashboard' && (
-              <div className="space-y-6">
-                {/* Banner de Voz y Auto-Sync */}
-                <div className="rounded-2xl p-5 bg-gradient-to-r from-indigo-950 via-slate-900 to-rose-950 text-white border border-indigo-800/50 shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                  <div className="space-y-1">
-                    <div className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-amber-400">
-                      <Icon name="wand-2" className="w-4 h-4" />
-                      <span>Auto-Sincronización cada 60 segundos + Dictado por Voz (es-MX)</span>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-1 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-bold text-base">Agenda de Hoy</h3>
+                      <p className="text-xs text-slate-500 capitalize">{formatearFechaHumana(hoyISO)}</p>
                     </div>
-                    <h3 className="text-base sm:text-lg font-extrabold">
-                      Subcategoría "Administrativo" en Prepa Lázaro Cárdenas y sincronización automática
-                    </h3>
-                    <p className="text-xs sm:text-sm text-slate-300">
-                      Reconoce: <strong>Administrativo, Cananea, Fuerza Puma, 95.1 FM, Taller de Medios, Fine Art, Vértice y Lázaro Cárdenas</strong>.
-                    </p>
+                    <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300">
+                      {estadisticas.deHoy.length} hoy
+                    </span>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2 shrink-0">
-                    <button
-                      onClick={() => {
-                        setTabModalVoz('dictar');
-                        setModalVozAbierto(true);
-                      }}
-                      className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs sm:text-sm flex items-center gap-2 shadow-md transition"
-                    >
-                      <Icon name="mic" className="w-4 h-4" />
-                      <span>Dictar Compromiso</span>
-                    </button>
-                    <button
-                      onClick={() => setModalSyncAbierto(true)}
-                      className="px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs sm:text-sm border border-slate-700 transition flex items-center gap-1.5"
-                    >
-                      <Icon name="key" className="w-4 h-4 text-emerald-400" />
-                      <span>Token GitHub / QR</span>
-                    </button>
-                  </div>
+
+                  {estadisticas.deHoy.length === 0 ? (
+                    <div className="p-6 text-center border border-dashed border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-500">
+                      No tienes compromisos registrados para hoy.
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5">
+                      {estadisticas.deHoy.map((item) => {
+                        const amb = AMBITOS[item.ambito] || AMBITOS['Personal'];
+                        return (
+                          <div key={item.id} className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2.5">
+                              <span className={`w-2.5 h-2.5 rounded-full ${amb.dotClass}`} />
+                              <div>
+                                <p className={`text-xs font-bold ${item.completado ? 'line-through text-slate-400' : ''}`}>{item.titulo}</p>
+                                <p className="text-[11px] text-slate-500">{item.horaInicio} · {item.subcategoria}</p>
+                              </div>
+                            </div>
+                            <button onClick={() => abrirModalEditar(item)} className="text-xs text-indigo-500 font-semibold">
+                              Ver
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
 
-                {/* Agenda de Hoy + Lista Principal */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  <div className="lg:col-span-1 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="font-bold text-base">Agenda de Hoy</h3>
-                        <p className="text-xs text-slate-500 capitalize">{formatearFechaHumana(hoyISO)}</p>
-                      </div>
-                      <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300">
-                        {estadisticas.deHoy.length} hoy
-                      </span>
+                {/* Lista Filtrada */}
+                <div className="lg:col-span-2 space-y-4">
+                  <div className="bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+                      <Icon name="search" className="w-4 h-4 text-slate-400" />
+                      <input
+                        type="text"
+                        value={busqueda}
+                        onChange={(e) => setBusqueda(e.target.value)}
+                        placeholder="Buscar Administrativo, sesión, Fuerza Puma, Fine Art, Vértice..."
+                        className="w-full text-xs sm:text-sm bg-transparent focus:outline-none"
+                      />
                     </div>
-
-                    {estadisticas.deHoy.length === 0 ? (
-                      <div className="p-6 text-center border border-dashed border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-500">
-                        No tienes compromisos registrados para hoy.
-                      </div>
-                    ) : (
-                      <div className="space-y-2.5">
-                        {estadisticas.deHoy.map((item) => {
-                          const amb = AMBITOS[item.ambito] || AMBITOS['Personal'];
-                          return (
-                            <div key={item.id} className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2">
-                              <div className="flex items-center gap-2.5">
-                                <span className={`w-2.5 h-2.5 rounded-full ${amb.dotClass}`} />
-                                <div>
-                                  <p className={`text-xs font-bold ${item.completado ? 'line-through text-slate-400' : ''}`}>{item.titulo}</p>
-                                  <p className="text-[11px] text-slate-500">{item.horaInicio} · {item.subcategoria}</p>
-                                </div>
-                              </div>
-                              <button onClick={() => abrirModalEditar(item)} className="text-xs text-indigo-500 font-semibold">
-                                Ver
-                              </button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Lista Filtrada */}
-                  <div className="lg:col-span-2 space-y-4">
-                    <div className="bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
-                      <div className="flex items-center gap-2 flex-1 min-w-[200px]">
-                        <Icon name="search" className="w-4 h-4 text-slate-400" />
-                        <input
-                          type="text"
-                          value={busqueda}
-                          onChange={(e) => setBusqueda(e.target.value)}
-                          placeholder="Buscar Administrativo, sesión, Fuerza Puma, Fine Art, Vértice..."
-                          className="w-full text-xs sm:text-sm bg-transparent focus:outline-none"
-                        />
-                      </div>
-                      <div className="flex items-center gap-1">
-                        {['Todos', 'Pendientes', 'Completados'].map((est) => (
-                          <button
-                            key={est}
-                            onClick={() => setFiltroEstado(est)}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                              filtroEstado === est
-                                ? 'bg-indigo-600 text-white'
-                                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-                            }`}
-                          >
-                            {est}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="space-y-3">
-                      {compromisosFiltrados.map((item) => (
-                        <TarjetaCompromiso key={item.id} item={item} />
+                    <div className="flex items-center gap-1">
+                      {['Todos', 'Pendientes', 'Completados'].map((est) => (
+                        <button
+                          key={est}
+                          onClick={() => setFiltroEstado(est)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                            filtroEstado === est
+                              ? 'bg-indigo-600 text-white'
+                              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                          }`}
+                        >
+                          {est}
+                        </button>
                       ))}
                     </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    {compromisosFiltrados.map((item) => (
+                      <TarjetaCompromiso key={item.id} item={item} />
+                    ))}
                   </div>
                 </div>
               </div>
@@ -1987,20 +1948,31 @@
             </div>
           )}
 
-          {/* MODAL DE SINCRONIZACIÓN AUTOMÁTICA CADA MINUTO */}
+          {/* MODAL DE CONFIGURACIÓN DE TOKEN (SE ABRE AUTOMÁTICAMENTE LA PRIMERA VEZ EN UN EQUIPO NUEVO) */}
           {modalSyncAbierto && (
             <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-xs flex items-center justify-center p-4">
-              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-5 max-h-[92vh] overflow-y-auto">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-5 max-h-[92vh] overflow-y-auto">
                 <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
                   <div>
                     <h3 className="font-extrabold text-base sm:text-lg">
-                      Sincronización Automática Cada Minuto (Sin Firebase)
+                      {esPrimeraConfiguracion
+                        ? 'Bienvenido: Vincula este dispositivo nueva vez'
+                        : 'Ajustes de Sincronización'}
                     </h3>
                     <p className="text-xs text-slate-500">
-                      En cuanto pegas tu Token de GitHub abajo, la sincronización se activa sola y se repite cada 60 segundos.
+                      {esPrimeraConfiguracion
+                        ? 'Ingresa tu Token de GitHub una sola vez en este equipo para activar la sincronización automática cada minuto.'
+                        : 'Tu Token se mantiene guardado en este dispositivo y sincroniza cada 60 segundos.'}
                     </p>
                   </div>
-                  <button onClick={() => setModalSyncAbierto(false)} className="text-slate-400 hover:text-slate-600">
+                  <button
+                    onClick={() => {
+                      setEsPrimeraConfiguracion(false);
+                      esperandoPrimerTokenRef.current = false;
+                      setModalSyncAbierto(false);
+                    }}
+                    className="text-slate-400 hover:text-slate-600"
+                  >
                     <Icon name="x" className="w-5 h-5" />
                   </button>
                 </div>
@@ -2008,9 +1980,9 @@
                 {/* Pestañas del Modal */}
                 <div className="flex flex-wrap gap-1.5 bg-slate-100 dark:bg-slate-800 p-1.5 rounded-xl">
                   {[
-                    { id: 'github', label: '1. Token de GitHub (Auto-Sync 60s)', icon: 'git-branch' },
+                    { id: 'github', label: '1. Token de GitHub', icon: 'key' },
                     { id: 'qr', label: '2. Código QR para iPad / Celular', icon: 'qr-code' },
-                    { id: 'archivo', label: '3. Respaldo en Archivo (.json)', icon: 'hard-drive' }
+                    { id: 'archivo', label: '3. Respaldo (.json)', icon: 'hard-drive' }
                   ].map((t) => (
                     <button
                       key={t.id}
@@ -2027,21 +1999,12 @@
                   ))}
                 </div>
 
-                {/* OPCIÓN 1: TOKEN DE GITHUB CON ACTIVACIÓN INSTANTÁNEA */}
+                {/* OPCIÓN 1: TOKEN DE GITHUB */}
                 {tabModalSync === 'github' && (
                   <div className="space-y-4 text-xs sm:text-sm">
-                    <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 text-xs space-y-1">
-                      <p className="font-bold text-emerald-900 dark:text-emerald-200">
-                        Sincronización 100% Automática Activada:
-                      </p>
-                      <p className="text-emerald-800 dark:text-emerald-300 leading-relaxed">
-                        Solo pega tu Token <code>ghp_...</code> en el campo de abajo. No necesitas oprimir ningún botón: el sistema detecta el token al instante, sube tus compromisos a tu repositorio y sincroniza cada 60 segundos.
-                      </p>
-                    </div>
-
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div>
-                        <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Tu Usuario GitHub</label>
+                        <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Usuario GitHub</label>
                         <input
                           type="text"
                           value={syncConfig.ghOwner}
@@ -2051,7 +2014,7 @@
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Nombre del Repositorio</label>
+                        <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Repositorio</label>
                         <input
                           type="text"
                           value={syncConfig.ghRepo}
@@ -2061,7 +2024,7 @@
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Rama (Branch)</label>
+                        <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Rama</label>
                         <input
                           type="text"
                           value={syncConfig.ghBranch}
@@ -2074,40 +2037,45 @@
 
                     <div>
                       <label className="block text-xs font-bold uppercase text-slate-500 mb-1">
-                        Token Personal de GitHub (Se guarda y sincroniza al instante al pegarlo)
+                        Token Personal de GitHub (Se guarda y conecta automáticamente al pegarlo)
                       </label>
                       <input
                         type="password"
+                        autoFocus={esPrimeraConfiguracion}
                         value={syncConfig.ghToken}
                         onChange={(e) => {
                           const nuevoToken = e.target.value;
                           const nuevaCfg = { ...syncConfig, metodo: 'github', ghToken: nuevoToken, autoSync: true };
+                          esperandoPrimerTokenRef.current = true;
                           setSyncConfig(nuevaCfg);
-                          localStorage.setItem('agenda_javier_sync_cfg_v4', JSON.stringify(nuevaCfg));
                         }}
                         placeholder="Pega aquí tu token ghp_xxxxxxxxxxxx"
-                        className="w-full px-3 py-2.5 rounded-xl border-2 border-indigo-400 dark:border-indigo-600 bg-white dark:bg-slate-800 text-xs font-mono"
+                        className="w-full px-3 py-2.5 rounded-xl border-2 border-indigo-500 bg-white dark:bg-slate-800 text-xs font-mono"
                       />
                     </div>
 
                     <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
-                      <span className="text-xs text-slate-500">
-                        Próxima verificación automática en: <strong>{segundosParaSync} segundos</strong>
-                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEsPrimeraConfiguracion(false);
+                          esperandoPrimerTokenRef.current = false;
+                          setModalSyncAbierto(false);
+                        }}
+                        className="px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-semibold"
+                      >
+                        Usar solo memoria local por ahora
+                      </button>
                       <div className="flex gap-2">
                         <button
                           type="button"
-                          onClick={() => sincronizarConNubePropia('push', compromisos, vocabulario)}
-                          className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold"
+                          onClick={() => {
+                            esperandoPrimerTokenRef.current = true;
+                            sincronizarConNubePropia('auto');
+                          }}
+                          className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold"
                         >
-                          Forzar Subida Ahora
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => sincronizarConNubePropia('pull')}
-                          className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold"
-                        >
-                          Forzar Descarga Ahora
+                          Conectar y Cerrar
                         </button>
                       </div>
                     </div>
@@ -2118,7 +2086,7 @@
                 {tabModalSync === 'qr' && (
                   <div className="space-y-4 text-center py-2">
                     <p className="text-xs text-slate-600 dark:text-slate-300 max-w-md mx-auto">
-                      Escanea este código QR con la cámara de tu iPad o celular para transferir tu Token de GitHub y dejar ambos equipos sincronizando automáticamente cada minuto:
+                      Escanea este código QR con la cámara de tu iPad o celular para transferir tu Token automáticamente:
                     </p>
                     <div className="inline-block p-4 bg-white rounded-2xl border border-slate-200 shadow-md">
                       <img
