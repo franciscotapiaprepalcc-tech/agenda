@@ -1,5 +1,5 @@
 {
-  "actualizadoEn": 1794602245820,
+  "actualizadoEn": 1794602254513,
   "compromisos": [
     {
       "titulo": "TERMINAR PLEANEACIONES 3ER PARCIAL",
@@ -13,6 +13,19 @@
       "completado": false,
       "id": "comp-1794602057152",
       "actualizadoEn": 1794602057152
+    },
+    {
+      "titulo": "SOLICITAR FOTOGRAFÍAS DE LOS EVENTOS DEL 20 Y 21 DE NOVIEMBRE DEL 2026",
+      "ambito": "Arte y Video",
+      "subcategoria": "Impresión Fine Art / Lona",
+      "fecha": "2026-11-17",
+      "horaInicio": "09:00",
+      "horaFin": "10:30",
+      "prioridad": "Alta",
+      "notas": "",
+      "completado": false,
+      "id": "comp-1794602219761",
+      "actualizadoEn": 1794602219761
     }
   ],
   "vocabulario": [
