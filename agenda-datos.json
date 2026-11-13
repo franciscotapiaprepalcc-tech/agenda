@@ -1,5 +1,5 @@
 {
-  "actualizadoEn": 1794602305954,
+  "actualizadoEn": 1794602837787,
   "compromisos": [
     {
       "titulo": "TERMINAR PLEANEACIONES 3ER PARCIAL",
@@ -13,6 +13,19 @@
       "completado": false,
       "id": "comp-1794602057152",
       "actualizadoEn": 1794602057152
+    },
+    {
+      "titulo": "IMPRESIONES DEL 20 Y DEL 21",
+      "ambito": "Arte y Video",
+      "subcategoria": "Impresión Fine Art / Lona",
+      "fecha": "2026-11-17",
+      "horaInicio": "09:00",
+      "horaFin": "10:30",
+      "prioridad": "Media",
+      "notas": "",
+      "completado": false,
+      "id": "comp-1794602837787",
+      "actualizadoEn": 1794602837787
     }
   ],
   "vocabulario": [
