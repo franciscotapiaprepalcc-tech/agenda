@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es-MX">
+<html lang="es-MX" class="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
@@ -8,10 +8,22 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 
-  <!-- Tailwind CSS CDN -->
+  <!-- Tailwind CSS CDN con soporte de Modo Oscuro por clase -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif']
+          }
+        }
+      }
+    };
+  </script>
 
-  <!-- React 18 & Babel Standalone CDNs -->
+  <!-- React 18 y Babel Standalone para ejecutar sin compilador externo -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -19,7 +31,7 @@
   <!-- Lucide Icons CDN -->
   <script src="https://unpkg.com/lucide@latest"></script>
 
-  <!-- Firebase Compat SDKs (Opcional para sincronización en tiempo real entre dispositivos) -->
+  <!-- Firebase Compat SDKs (Opcional para sincronización en la nube) -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
@@ -28,26 +40,24 @@
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      background-color: #f8fafc;
-      color: #0f172a;
     }
     @keyframes pulse-ring {
-      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
-      70% { transform: scale(1); box-shadow: 0 0 0 12px rgba(239, 68, 68, 0); }
-      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.7); }
+      70% { transform: scale(1); box-shadow: 0 0 0 14px rgba(244, 63, 94, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(244, 63, 94, 0); }
     }
     .mic-pulse {
-      animation: pulse-ring 1.6s infinite;
+      animation: pulse-ring 1.5s infinite;
     }
   </style>
 </head>
-<body class="min-h-screen bg-slate-50 text-slate-900 selection:bg-indigo-600 selection:text-white">
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen transition-colors duration-200">
   <div id="root"></div>
 
   <script type="text/babel">
     const { useState, useEffect, useMemo, useRef } = React;
 
-    // Componente auxiliar para renderizar íconos de Lucide en navegador sin compilador
+    // Componente de Íconos compatible con GitHub Pages sin imports ES6
     const Icon = ({ name, className = "w-5 h-5" }) => {
       const spanRef = useRef(null);
       useEffect(() => {
@@ -59,225 +69,317 @@
       return <span ref={spanRef} className="inline-flex items-center justify-center shrink-0" />;
     };
 
-    // Configuración de los 3 Ámbitos
+    // Configuración de los 3 Ámbitos con paletas claras y oscuras
     const AMBITOS = {
-      arte_video: {
-        id: 'arte_video',
+      'Arte y Video': {
+        id: 'Arte y Video',
         nombre: 'Arte y Video',
-        corto: 'Arte y Video',
-        icono: 'camera',
-        colorText: 'text-amber-800',
-        colorBg: 'bg-amber-50',
-        colorBorder: 'border-amber-300',
-        badgeBg: 'bg-amber-100 text-amber-900 border-amber-300',
-        accent: 'bg-amber-500',
-        btnActive: 'bg-amber-600 text-white shadow-sm',
+        descripcion: 'Estudio fotográfico, producción de video, edición e impresiones',
+        icon: 'camera',
+        colorHex: '#f59e0b',
+        bgLight: 'bg-amber-50 dark:bg-amber-950/30',
+        borderLight: 'border-amber-200 dark:border-amber-800/60',
+        textClass: 'text-amber-700 dark:text-amber-300',
+        badgeClass: 'bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200 border-amber-300 dark:border-amber-700',
+        btnClass: 'bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold',
+        dotClass: 'bg-amber-500',
         subcategorias: [
           'Sesión Fotográfica',
           'Edición de Video / Foto',
-          'Impresión Fine Art / Ampliaciones',
+          'Impresión Fine Art / Lona',
+          'Cobertura de Evento',
           'Atención a Clientes',
-          'Cobertura de Evento'
+          'Mantenimiento de Equipo'
         ]
       },
-      prepa: {
-        id: 'prepa',
+      'Preparatoria Lázaro Cárdenas': {
+        id: 'Preparatoria Lázaro Cárdenas',
         nombre: 'Preparatoria Lázaro Cárdenas',
-        corto: 'Prepa Lázaro Cárdenas',
-        icono: 'graduation-cap',
-        colorText: 'text-indigo-800',
-        colorBg: 'bg-indigo-50',
-        colorBorder: 'border-indigo-300',
-        badgeBg: 'bg-indigo-100 text-indigo-900 border-indigo-300',
-        accent: 'bg-indigo-600',
-        btnActive: 'bg-indigo-600 text-white shadow-sm',
+        descripcion: 'Docencia, Taller de Medios, Radio 95.1 FM y proyectos educativos',
+        icon: 'graduation-cap',
+        colorHex: '#4f46e5',
+        bgLight: 'bg-indigo-50 dark:bg-indigo-950/30',
+        borderLight: 'border-indigo-200 dark:border-indigo-800/60',
+        textClass: 'text-indigo-700 dark:text-indigo-300',
+        badgeClass: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/60 dark:text-indigo-200 border-indigo-300 dark:border-indigo-700',
+        btnClass: 'bg-indigo-600 hover:bg-indigo-700 text-white font-bold',
+        dotClass: 'bg-indigo-500',
         subcategorias: [
           'Clase Frente a Grupo',
-          'Taller de Medios Digitales',
-          'Radio Escolar Fuerza Puma 95.1 FM',
-          'Concurso Vértice / Exposiciones',
-          'Investigación / STEAM'
+          'Taller de Medios',
+          'Radio Escolar 95.1 FM',
+          'Proyecto Educativo / Concurso',
+          'Revisión y Calificaciones',
+          'Reunión Académica'
         ]
       },
-      personal: {
-        id: 'personal',
+      'Personal': {
+        id: 'Personal',
         nombre: 'Personal',
-        corto: 'Personal',
-        icono: 'heart',
-        colorText: 'text-emerald-800',
-        colorBg: 'bg-emerald-50',
-        colorBorder: 'border-emerald-300',
-        badgeBg: 'bg-emerald-100 text-emerald-900 border-emerald-300',
-        accent: 'bg-emerald-500',
-        btnActive: 'bg-emerald-600 text-white shadow-sm',
+        descripcion: 'Familia, salud, hogar, trámites y descanso',
+        icon: 'user',
+        colorHex: '#10b981',
+        bgLight: 'bg-emerald-50 dark:bg-emerald-950/30',
+        borderLight: 'border-emerald-200 dark:border-emerald-800/60',
+        textClass: 'text-emerald-700 dark:text-emerald-300',
+        badgeClass: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200 border-emerald-300 dark:border-emerald-700',
+        btnClass: 'bg-emerald-600 hover:bg-emerald-700 text-white font-bold',
+        dotClass: 'bg-emerald-500',
         subcategorias: [
           'Familia y Hogar',
           'Salud y Ejercicio',
           'Trámites y Finanzas',
-          'Descanso / Lectura',
-          'Otros'
+          'Desarrollo Personal',
+          'Descanso / Ocio',
+          'Compras'
         ]
       }
     };
 
+    const PRIORIDADES = {
+      'Alta': { label: 'Alta', color: 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/50 border-rose-200 dark:border-rose-800' },
+      'Media': { label: 'Media', color: 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/50 border-amber-200 dark:border-amber-800' },
+      'Baja': { label: 'Baja', color: 'text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700' }
+    };
+
     const VOCABULARIO_INICIAL = [
-      { id: 'v1', incorrecto: 'cananea', correcto: 'Cananea', categoria: 'Lugar' },
-      { id: 'v2', incorrecto: 'fuerza puma', correcto: 'Fuerza Puma 95.1 FM', categoria: 'Prepa' },
-      { id: 'v3', incorrecto: 'taller de medios', correcto: 'Taller de Medios Digitales', categoria: 'Prepa' },
-      { id: 'v4', incorrecto: 'lazaro cardenas', correcto: 'Preparatoria Lázaro Cárdenas', categoria: 'Prepa' },
-      { id: 'v5', incorrecto: 'arte y video', correcto: 'Arte y Video Cananea', categoria: 'Estudio' },
-      { id: 'v6', incorrecto: 'fine art', correcto: 'Impresión Fine Art', categoria: 'Estudio' },
-      { id: 'v7', incorrecto: 'vertice', correcto: 'Vértice ENIEP', categoria: 'Prepa' },
-      { id: 'v8', incorrecto: 'tierra y cobre', correcto: 'Cananea... Tierra y Cobre', categoria: 'Prepa' }
+      { id: 'voc-1', termino: 'Cananea', variantes: 'cananea, kananea, cana nea', categoria: 'General' },
+      { id: 'voc-2', termino: 'Fuerza Puma', variantes: 'fuerza puma, fuersa puma, pumas prepa', categoria: 'Preparatoria Lázaro Cárdenas' },
+      { id: 'voc-3', termino: '95.1 FM', variantes: '95.1, noventa y cinco punto uno, 95 1 fm, radio 95.1', categoria: 'Preparatoria Lázaro Cárdenas' },
+      { id: 'voc-4', termino: 'Taller de Medios', variantes: 'taller de medios, taller medios', categoria: 'Preparatoria Lázaro Cárdenas' },
+      { id: 'voc-5', termino: 'Fine Art', variantes: 'fine art, fain art, impresión fine art', categoria: 'Arte y Video' },
+      { id: 'voc-6', termino: 'Vértice', variantes: 'vertice, vértice, concurso vértice', categoria: 'Preparatoria Lázaro Cárdenas' },
+      { id: 'voc-7', termino: 'Lázaro Cárdenas', variantes: 'lazaro cardenas, lázaro cárdenas, prepa lazaro', categoria: 'Preparatoria Lázaro Cárdenas' }
     ];
 
-    const obtenerHoyISO = () => {
+    const EJEMPLOS_DICTADO = [
+      'Agendar mañana a las 4 de la tarde sesión fotográfica en Arte y Video con prioridad alta',
+      'El lunes a las 10 am junta de Radio Escolar 95.1 FM Fuerza Puma en la Preparatoria Lázaro Cárdenas',
+      'Pasado mañana a las 6 de la tarde impresión Fine Art para exposición Vértice en Cananea',
+      'Hoy a las 8 de la noche cena familiar y descanso en ámbito Personal con prioridad media'
+    ];
+
+    const formatDateISO = (dateObj) => {
+      const year = dateObj.getFullYear();
+      const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const day = String(dateObj.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
+    const addDays = (dateObj, days) => {
+      const result = new Date(dateObj);
+      result.setDate(result.getDate() + days);
+      return result;
+    };
+
+    const generarCompromisosIniciales = () => {
       const hoy = new Date();
-      const offset = hoy.getTimezoneOffset();
-      const local = new Date(hoy.getTime() - offset * 60 * 1000);
-      return local.toISOString().split('T')[0];
-    };
+      const manana = addDays(hoy, 1);
+      const pasado = addDays(hoy, 2);
+      const ayer = addDays(hoy, -1);
 
-    const sumarDiasISO = (dias) => {
-      const f = new Date();
-      f.setDate(f.getDate() + dias);
-      const offset = f.getTimezoneOffset();
-      const local = new Date(f.getTime() - offset * 60 * 1000);
-      return local.toISOString().split('T')[0];
+      return [
+        {
+          id: 'demo-1',
+          titulo: 'Sesión de Retrato en Estudio y Selección',
+          ambito: 'Arte y Video',
+          subcategoria: 'Sesión Fotográfica',
+          fecha: formatDateISO(hoy),
+          horaInicio: '10:00',
+          horaFin: '12:00',
+          prioridad: 'Alta',
+          notas: 'Preparar esquema de iluminación con softbox octagonal y fondo gris.',
+          completado: false,
+          creadoEn: Date.now() - 3600000
+        },
+        {
+          id: 'demo-2',
+          titulo: 'Producción de Cápsulas en Radio 95.1 FM Fuerza Puma',
+          ambito: 'Preparatoria Lázaro Cárdenas',
+          subcategoria: 'Radio Escolar 95.1 FM',
+          fecha: formatDateISO(hoy),
+          horaInicio: '13:30',
+          horaFin: '15:00',
+          prioridad: 'Alta',
+          notas: 'Grabar cortinillas con los alumnos del Taller de Medios y revisar niveles de audio.',
+          completado: false,
+          creadoEn: Date.now() - 7200000
+        },
+        {
+          id: 'demo-3',
+          titulo: 'Cena familiar y descanso en casa',
+          ambito: 'Personal',
+          subcategoria: 'Familia y Hogar',
+          fecha: formatDateISO(hoy),
+          horaInicio: '19:30',
+          horaFin: '21:00',
+          prioridad: 'Media',
+          notas: 'Desconectar notificaciones del trabajo durante la cena.',
+          completado: false,
+          creadoEn: Date.now() - 10800000
+        },
+        {
+          id: 'demo-4',
+          titulo: 'Retoque en Lightroom e Impresión Fine Art',
+          ambito: 'Arte y Video',
+          subcategoria: 'Impresión Fine Art / Lona',
+          fecha: formatDateISO(manana),
+          horaInicio: '09:30',
+          horaFin: '12:30',
+          prioridad: 'Media',
+          notas: 'Verificar perfiles de color para ampliaciones.',
+          completado: false,
+          creadoEn: Date.now() - 14400000
+        },
+        {
+          id: 'demo-5',
+          titulo: 'Recepción de cuadros 6x8 Concurso Vértice Tierra y Cobre',
+          ambito: 'Preparatoria Lázaro Cárdenas',
+          subcategoria: 'Proyecto Educativo / Concurso',
+          fecha: formatDateISO(manana),
+          horaInicio: '16:00',
+          horaFin: '17:30',
+          prioridad: 'Alta',
+          notas: 'Verificar entregas digitales por WeTransfer y marcos físicos en Cananea.',
+          completado: false,
+          creadoEn: Date.now() - 18000000
+        },
+        {
+          id: 'demo-6',
+          titulo: 'Organización de recibos y pagos del mes',
+          ambito: 'Personal',
+          subcategoria: 'Trámites y Finanzas',
+          fecha: formatDateISO(ayer),
+          horaInicio: '11:00',
+          horaFin: '11:45',
+          prioridad: 'Baja',
+          notas: 'Guardar comprobantes digitales en carpeta mensual.',
+          completado: true,
+          creadoEn: Date.now() - 86400000
+        },
+        {
+          id: 'demo-7',
+          titulo: 'Planeación didáctica de clases de la semana',
+          ambito: 'Preparatoria Lázaro Cárdenas',
+          subcategoria: 'Clase Frente a Grupo',
+          fecha: formatDateISO(pasado),
+          horaInicio: '11:00',
+          horaFin: '13:00',
+          prioridad: 'Media',
+          notas: 'Preparar presentación interactiva y rúbricas de evaluación.',
+          completado: false,
+          creadoEn: Date.now() - 90000000
+        }
+      ];
     };
-
-    const COMPROMISOS_MUESTRA = [
-      {
-        id: 'demo-1',
-        titulo: 'Revisión de cuadros 6x8 para concurso Vértice Tierra y Cobre',
-        ambito: 'prepa',
-        subcategoria: 'Concurso Vértice / Exposiciones',
-        fecha: obtenerHoyISO(),
-        horaInicio: '10:00',
-        horaFin: '11:30',
-        prioridad: 'alta',
-        notas: 'Verificar entregas digitales por WeTransfer y marcos físicos de los alumnos.',
-        completado: false
-      },
-      {
-        id: 'demo-2',
-        titulo: 'Transmisión en cabina Fuerza Puma Producciones 95.1 FM',
-        ambito: 'prepa',
-        subcategoria: 'Radio Escolar Fuerza Puma 95.1 FM',
-        fecha: obtenerHoyISO(),
-        horaInicio: '12:30',
-        horaFin: '14:00',
-        prioridad: 'media',
-        notas: 'Ajustar niveles de consola y guion con alumnos del Taller de Medios.',
-        completado: false
-      },
-      {
-        id: 'demo-3',
-        titulo: 'Retoque en Lightroom y preparación de impresiones 16x20',
-        ambito: 'arte_video',
-        subcategoria: 'Impresión Fine Art / Ampliaciones',
-        fecha: obtenerHoyISO(),
-        horaInicio: '17:00',
-        horaFin: '19:00',
-        prioridad: 'alta',
-        notas: 'Revisar perfiles de color en iPad Pro antes de enviar pedido.',
-        completado: false
-      },
-      {
-        id: 'demo-4',
-        titulo: 'Cena en familia y descanso',
-        ambito: 'personal',
-        subcategoria: 'Familia y Hogar',
-        fecha: obtenerHoyISO(),
-        horaInicio: '20:30',
-        horaFin: '22:00',
-        prioridad: 'media',
-        notas: 'Tiempo libre en casa.',
-        completado: false
-      }
-    ];
 
     function App() {
-      // Estados principales con persistencia en LocalStorage
+      // Tema Oscuro / Claro
+      const [darkMode, setDarkMode] = useState(() => {
+        const saved = localStorage.getItem('agenda_javier_dark_v2');
+        return saved !== null ? JSON.parse(saved) : true;
+      });
+
+      useEffect(() => {
+        localStorage.setItem('agenda_javier_dark_v2', JSON.stringify(darkMode));
+        if (darkMode) {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+      }, [darkMode]);
+
+      // Navegación
+      const [vistaActiva, setVistaActiva] = useState('dashboard'); // 'dashboard' | 'calendario' | 'lista'
+      const [modoCalendario, setModoCalendario] = useState('mes'); // 'mes' | 'semana'
+
+      // Compromisos y Vocabulario con guardado inmediato en LocalStorage
       const [compromisos, setCompromisos] = useState(() => {
         try {
-          const guardado = localStorage.getItem('agenda_javier_compromisos_v1');
-          return guardado ? JSON.parse(guardado) : COMPROMISOS_MUESTRA;
+          const saved = localStorage.getItem('agenda_javier_compromisos_v2');
+          return saved ? JSON.parse(saved) : generarCompromisosIniciales();
         } catch {
-          return COMPROMISOS_MUESTRA;
+          return generarCompromisosIniciales();
         }
       });
 
       const [vocabulario, setVocabulario] = useState(() => {
         try {
-          const guardado = localStorage.getItem('agenda_javier_vocabulario_v1');
-          return guardado ? JSON.parse(guardado) : VOCABULARIO_INICIAL;
+          const saved = localStorage.getItem('agenda_javier_vocab_v2');
+          return saved ? JSON.parse(saved) : VOCABULARIO_INICIAL;
         } catch {
           return VOCABULARIO_INICIAL;
         }
       });
 
-      // Navegación y filtros
-      const [vistaActiva, setVistaActiva] = useState('resumen'); // resumen | calendario | lista | vocabulario
-      const [filtroAmbito, setFiltroAmbito] = useState('todos');
-      const [filtroEstado, setFiltroEstado] = useState('pendientes'); // todos | pendientes | completados
-      const [busqueda, setBusqueda] = useState('');
-      const [fechaSeleccionada, setFechaSeleccionada] = useState(obtenerHoyISO());
-
-      // Modal Crear / Editar Compromiso
-      const [modalAbierto, setModalAbierto] = useState(false);
-      const [editandoId, setEditandoId] = useState(null);
-      const [form, setForm] = useState({
-        titulo: '',
-        ambito: 'arte_video',
-        subcategoria: AMBITOS.arte_video.subcategorias[0],
-        fecha: obtenerHoyISO(),
-        horaInicio: '09:00',
-        horaFin: '10:00',
-        prioridad: 'media',
-        notas: ''
-      });
-
-      // Estados para Dictado por Voz Inteligente
-      const [modalVozAbierto, setModalVozAbierto] = useState(false);
-      const [escuchando, setEscuchando] = useState(false);
-      const [campoEscuchando, setCampoEscuchando] = useState(null); // 'asistente' | 'titulo' | 'notas'
-      const [textoDictado, setTextoDictado] = useState('');
-      const [errorVoz, setErrorVoz] = useState('');
-      const recognitionRef = useRef(null);
-
-      // Estado para nuevo término de vocabulario
-      const [nuevoVocab, setNuevoVocab] = useState({ incorrecto: '', correcto: '', categoria: 'General' });
-
-      // Estado para Sincronización Nube (Firebase opcional) y Respaldos
-      const [modalNubeAbierto, setModalNubeAbierto] = useState(false);
-      const [firebaseConfigStr, setFirebaseConfigStr] = useState(() => localStorage.getItem('agenda_javier_fb_config') || '');
-      const [nubeConectada, setNubeConectada] = useState(false);
-      const [mensajeNube, setMensajeNube] = useState('');
-      const dbRef = useRef(null);
-
-      // Guardar en LocalStorage automáticamente
       useEffect(() => {
-        localStorage.setItem('agenda_javier_compromisos_v1', JSON.stringify(compromisos));
+        localStorage.setItem('agenda_javier_compromisos_v2', JSON.stringify(compromisos));
       }, [compromisos]);
 
       useEffect(() => {
-        localStorage.setItem('agenda_javier_vocabulario_v1', JSON.stringify(vocabulario));
+        localStorage.setItem('agenda_javier_vocab_v2', JSON.stringify(vocabulario));
       }, [vocabulario]);
 
-      // Conexión opcional con Firebase si el usuario pegó sus credenciales
+      // Filtros
+      const [filtroAmbito, setFiltroAmbito] = useState('Todos');
+      const [filtroEstado, setFiltroEstado] = useState('Todos');
+      const [busqueda, setBusqueda] = useState('');
+
+      // Calendario
+      const [fechaCursor, setFechaCursor] = useState(new Date());
+      const [diaSeleccionado, setDiaSeleccionado] = useState(formatDateISO(new Date()));
+
+      // Modales
+      const [modalAbierto, setModalAbierto] = useState(false);
+      const [compromisoEditando, setCompromisoEditando] = useState(null);
+      const [notificacion, setNotificacion] = useState(null);
+
+      // Dictado por Voz
+      const [modalVozAbierto, setModalVozAbierto] = useState(false);
+      const [tabModalVoz, setTabModalVoz] = useState('dictar'); // 'dictar' | 'vocabulario'
+      const [escuchandoVoz, setEscuchandoVoz] = useState(false);
+      const [campoDictadoActivo, setCampoDictadoActivo] = useState(null);
+      const [textoDictado, setTextoDictado] = useState('');
+      const [propuestaVoz, setPropuestaVoz] = useState(null);
+      const recognitionRef = useRef(null);
+      const [nuevoTermino, setNuevoTermino] = useState({ termino: '', variantes: '', categoria: 'Arte y Video' });
+
+      // Nube (Firebase opcional) y Respaldos
+      const [modalNubeAbierto, setModalNubeAbierto] = useState(false);
+      const [firebaseConfigStr, setFirebaseConfigStr] = useState(() => localStorage.getItem('agenda_javier_fb_v2') || '');
+      const [sincronizadoNube, setSincronizadoNube] = useState(false);
+      const dbRef = useRef(null);
+
+      // Formulario
+      const [formData, setFormData] = useState({
+        titulo: '',
+        ambito: 'Arte y Video',
+        subcategoria: 'Sesión Fotográfica',
+        fecha: formatDateISO(new Date()),
+        horaInicio: '09:00',
+        horaFin: '10:30',
+        prioridad: 'Media',
+        notas: '',
+        completado: false
+      });
+
+      const mostrarMensaje = (texto, tipo = 'exito') => {
+        setNotificacion({ texto, tipo });
+        setTimeout(() => setNotificacion(null), 3200);
+      };
+
+      // Conexión con Firebase si el usuario configura sus llaves
       useEffect(() => {
         if (!firebaseConfigStr.trim()) return;
         try {
-          let textoLimpio = firebaseConfigStr.trim();
-          const matchObj = textoLimpio.match(/\{[\s\S]*\}/);
-          if (matchObj) textoLimpio = matchObj[0];
-          // Permitir sintaxis de objeto JS de la consola de Firebase convirtiéndolo a JSON válido
-          const jsonValido = textoLimpio
+          let limpio = firebaseConfigStr.trim();
+          const matchObj = limpio.match(/\{[\s\S]*\}/);
+          if (matchObj) limpio = matchObj[0];
+          const jsonStr = limpio
             .replace(/(['"])?([a-zA-Z0-9_]+)(['"])?\s*:/g, '"$2":')
             .replace(/'/g, '"')
             .replace(/,\s*\}/g, '}');
-          const config = JSON.parse(jsonValido);
+          const config = JSON.parse(jsonStr);
 
           if (config.apiKey && config.projectId && window.firebase) {
             if (!window.firebase.apps.length) {
@@ -288,265 +390,431 @@
             dbRef.current = db;
 
             auth.signInAnonymously().then(() => {
-              setNubeConectada(true);
-              setMensajeNube('Conectado y sincronizando en tiempo real con Firebase.');
-              db.collection('agenda_compromisos').onSnapshot((snap) => {
+              setSincronizadoNube(true);
+              db.collection('agenda_compromisos_v2').onSnapshot((snap) => {
                 if (!snap.empty) {
-                  const remotos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                  setCompromisos(remotos);
+                  setCompromisos(snap.docs.map(d => ({ ...d.data(), id: d.id })));
                 }
               });
-            }).catch((err) => {
-              setMensajeNube('Aviso Firebase Auth: Activa el acceso Anónimo en Firebase Console.');
-            });
+            }).catch(() => {});
           }
-        } catch (e) {
-          console.warn('Configuración Firebase pendiente o inválida:', e);
-        }
+        } catch (e) {}
       }, [firebaseConfigStr]);
 
-      // Función que aplica el vocabulario personalizado sobre el texto transcrito
-      const aplicarCorreccionVocabulario = (texto) => {
-        if (!texto) return '';
-        let procesado = texto;
+      // Corrección fonética personalizada
+      const aplicarVocabularioPersonalizado = (textoOriginal) => {
+        if (!textoOriginal) return '';
+        let resultado = textoOriginal;
         vocabulario.forEach((item) => {
-          if (item.incorrecto && item.correcto) {
-            const regex = new RegExp(`\\b${item.incorrecto}\\b`, 'gi');
-            procesado = procesado.replace(regex, item.correcto);
-          }
+          const listaVariantes = (item.variantes || '')
+            .split(',')
+            .map((v) => v.trim())
+            .filter(Boolean);
+          const todas = Array.from(new Set([...listaVariantes, item.termino]));
+          todas.forEach((variante) => {
+            if (!variante) return;
+            const escapado = variante.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(`\\b${escapado}\\b`, 'gi');
+            resultado = resultado.replace(regex, item.termino);
+          });
         });
-        return procesado;
+        return resultado;
       };
 
-      // Intérprete inteligente en Español (es-MX) para extraer ámbito, fecha, hora y prioridad de una frase dictada
-      const interpretarFraseNatural = (fraseRaw) => {
-        const frase = aplicarCorreccionVocabulario(fraseRaw);
-        const lower = frase.toLowerCase();
+      // Analizador inteligente de lenguaje natural en español
+      const analizarTextoLocalmente = (textoBruto) => {
+        const texto = aplicarVocabularioPersonalizado(textoBruto);
+        const lower = texto.toLowerCase();
+        const hoy = new Date();
 
-        // 1. Detectar Ámbito y Subcategoría
-        let ambitoDetectado = 'personal';
-        let subcategoriaDetectada = AMBITOS.personal.subcategorias[0];
+        let ambito = 'Arte y Video';
+        if (
+          lower.includes('prepa') || lower.includes('lázaro cárdenas') || lower.includes('lazaro cardenas') ||
+          lower.includes('radio') || lower.includes('95.1') || lower.includes('taller de medios') ||
+          lower.includes('fuerza puma') || lower.includes('clase') || lower.includes('alumno') ||
+          lower.includes('concurso') || lower.includes('vértice') || lower.includes('vertice')
+        ) {
+          ambito = 'Preparatoria Lázaro Cárdenas';
+        } else if (
+          lower.includes('personal') || lower.includes('familia') || lower.includes('médico') ||
+          lower.includes('salud') || lower.includes('casa') || lower.includes('hogar') ||
+          lower.includes('cena') || lower.includes('descanso') || lower.includes('trámite')
+        ) {
+          ambito = 'Personal';
+        }
 
-        if (/(foto|sesi[oó]n|video|edici[oó]n|lightroom|impresi[oó]n|fine art|cliente|boda|estudio|c[aá]mara|retrato|ampliaci[oó]n)/.test(lower)) {
-          ambitoDetectado = 'arte_video';
-          if (/impresi[oó]n|fine art|ampliaci|cuadro|lona/.test(lower)) subcategoriaDetectada = 'Impresión Fine Art / Ampliaciones';
-          else if (/edici[oó]n|lightroom|retocar|retoque/.test(lower)) subcategoriaDetectada = 'Edición de Video / Foto';
-          else if (/cliente|cotizaci|entrega/.test(lower)) subcategoriaDetectada = 'Atención a Clientes';
-          else subcategoriaDetectada = 'Sesión Fotográfica';
-        } else if (/(prepa|clase|alumno|taller de medios|radio|fuerza puma|95\.1|v[eé]rtice|l[aá]zaro c[aá]rdenas|escuela|examen|profe|steam|expociencias)/.test(lower)) {
-          ambitoDetectado = 'prepa';
-          if (/radio|fuerza puma|95\.1|cabina/.test(lower)) subcategoriaDetectada = 'Radio Escolar Fuerza Puma 95.1 FM';
-          else if (/taller de medios/.test(lower)) subcategoriaDetectada = 'Taller de Medios Digitales';
-          else if (/v[eé]rtice|concurso|exposici[oó]n|tierra y cobre/.test(lower)) subcategoriaDetectada = 'Concurso Vértice / Exposiciones';
-          else if (/steam|investigaci[oó]n|ciencia/.test(lower)) subcategoriaDetectada = 'Investigación / STEAM';
-          else subcategoriaDetectada = 'Clase Frente a Grupo';
+        let subcategoria = AMBITOS[ambito].subcategorias[0];
+        if (ambito === 'Arte y Video') {
+          if (lower.includes('edición') || lower.includes('editar') || lower.includes('lightroom')) subcategoria = 'Edición de Video / Foto';
+          else if (lower.includes('fine art') || lower.includes('impresión') || lower.includes('lona') || lower.includes('ampliación')) subcategoria = 'Impresión Fine Art / Lona';
+          else if (lower.includes('cliente') || lower.includes('cotización') || lower.includes('entrega')) subcategoria = 'Atención a Clientes';
+          else subcategoria = 'Sesión Fotográfica';
+        } else if (ambito === 'Preparatoria Lázaro Cárdenas') {
+          if (lower.includes('95.1') || lower.includes('radio') || lower.includes('cabina')) subcategoria = 'Radio Escolar 95.1 FM';
+          else if (lower.includes('taller de medios') || lower.includes('medios')) subcategoria = 'Taller de Medios';
+          else if (lower.includes('proyecto') || lower.includes('concurso') || lower.includes('vértice') || lower.includes('fuerza puma')) subcategoria = 'Proyecto Educativo / Concurso';
+          else if (lower.includes('califica') || lower.includes('revisión')) subcategoria = 'Revisión y Calificaciones';
+          else if (lower.includes('junta') || lower.includes('reunión')) subcategoria = 'Reunión Académica';
+          else subcategoria = 'Clase Frente a Grupo';
         } else {
-          ambitoDetectado = 'personal';
-          if (/salud|m[eé]dico|ejercicio|entrena/.test(lower)) subcategoriaDetectada = 'Salud y Ejercicio';
-          else if (/pago|banco|tr[aá]mite|factura/.test(lower)) subcategoriaDetectada = 'Trámites y Finanzas';
-          else subcategoriaDetectada = 'Familia y Hogar';
+          if (lower.includes('salud') || lower.includes('médico') || lower.includes('ejercicio')) subcategoria = 'Salud y Ejercicio';
+          else if (lower.includes('trámite') || lower.includes('pago') || lower.includes('banco')) subcategoria = 'Trámites y Finanzas';
+          else if (lower.includes('descanso') || lower.includes('ocio')) subcategoria = 'Descanso / Ocio';
+          else subcategoria = 'Familia y Hogar';
         }
 
-        // 2. Detectar Fecha
-        let fechaDetectada = obtenerHoyISO();
-        if (/pasado ma[ñn]ana/.test(lower)) {
-          fechaDetectada = sumarDiasISO(2);
-        } else if (/ma[ñn]ana/.test(lower)) {
-          fechaDetectada = sumarDiasISO(1);
+        let fechaObj = new Date(hoy);
+        if (lower.includes('pasado mañana')) {
+          fechaObj = addDays(hoy, 2);
+        } else if (lower.includes('mañana') && !lower.includes('de la mañana')) {
+          fechaObj = addDays(hoy, 1);
+        } else {
+          const diasNombres = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+          diasNombres.forEach((diaNombre, idx) => {
+            if (lower.includes(`el ${diaNombre}`) || lower.startsWith(diaNombre)) {
+              const actual = hoy.getDay();
+              let diff = (idx - actual + 7) % 7;
+              if (diff === 0) diff = 7;
+              fechaObj = addDays(hoy, diff);
+            }
+          });
         }
+        const fecha = formatDateISO(fechaObj);
 
-        // 3. Detectar Hora (ej. "a las 5 de la tarde", "a las 10:30")
         let horaInicio = '09:00';
-        let horaFin = '10:00';
-        const matchHora = lower.match(/a las (\d{1,2})(?::(\d{2}))?\s*(de la tarde|de la noche|de la ma[ñn]ana|pm|am)?/);
+        let horaFin = '10:30';
+        const matchHora = lower.match(/a las (\d{1,2})(?::(\d{2}))?\s*(am|pm|de la tarde|de la noche|de la mañana)?/i);
         if (matchHora) {
           let h = parseInt(matchHora[1], 10);
-          const m = matchHora[2] ? matchHora[2] : '00';
-          const periodo = matchHora[3] || '';
-          if ((periodo.includes('tarde') || periodo.includes('noche') || periodo === 'pm') && h < 12) {
+          const m = matchHora[2] ? parseInt(matchHora[2], 10) : 0;
+          const periodo = (matchHora[3] || '').toLowerCase();
+          if ((periodo.includes('pm') || periodo.includes('tarde') || periodo.includes('noche')) && h < 12) {
             h += 12;
+          } else if (periodo.includes('mañana') && h === 12) {
+            h = 0;
           }
-          horaInicio = `${String(h).padStart(2, '0')}:${m}`;
-          const hFin = (h + 1) % 24;
-          horaFin = `${String(hFin).padStart(2, '0')}:${m}`;
+          horaInicio = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+          const hFin = Math.min(23, h + 1);
+          horaFin = `${String(hFin).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
         }
 
-        // 4. Detectar Prioridad
-        let prioridadDetectada = 'media';
-        if (/urgente|importante|prioridad alta|cr[ií]tico/.test(lower)) {
-          prioridadDetectada = 'alta';
-        } else if (/prioridad baja|sin prisa|opcional/.test(lower)) {
-          prioridadDetectada = 'baja';
+        let prioridad = 'Media';
+        if (lower.includes('prioridad alta') || lower.includes('urgente') || lower.includes('importante')) {
+          prioridad = 'Alta';
+        } else if (lower.includes('prioridad baja') || lower.includes('sin prisa')) {
+          prioridad = 'Baja';
         }
 
-        // Capitalizar primera letra
-        const tituloLimpio = frase.charAt(0).toUpperCase() + frase.slice(1);
+        let tituloLimpio = texto
+          .replace(/^(agendar|programar|anotar|crear|guardar)\s+/i, '')
+          .replace(/\b(hoy|mañana|pasado mañana|el lunes|el martes|el miércoles|el jueves|el viernes|el sábado|el domingo)\b/gi, '')
+          .replace(/a las \d{1,2}(:\d{2})?\s*(am|pm|de la tarde|de la noche|de la mañana|horas|hrs)?/gi, '')
+          .replace(/con prioridad (alta|media|baja)/gi, '')
+          .replace(/en el ámbito (de )?(arte y video|preparatoria lázaro cárdenas|personal)/gi, '')
+          .replace(/en (arte y video|la preparatoria lázaro cárdenas|preparatoria lázaro cárdenas|ámbito personal)/gi, '')
+          .replace(/\s+/g, ' ')
+          .trim();
+
+        if (tituloLimpio.length > 0) {
+          tituloLimpio = tituloLimpio.charAt(0).toUpperCase() + tituloLimpio.slice(1);
+        } else {
+          tituloLimpio = `${subcategoria} (${ambito})`;
+        }
 
         return {
           titulo: tituloLimpio,
-          ambito: ambitoDetectado,
-          subcategoria: subcategoriaDetectada,
-          fecha: fechaDetectada,
+          ambito,
+          subcategoria,
+          fecha,
           horaInicio,
           horaFin,
-          prioridad: prioridadDetectada,
-          notas: `Creado por dictado de voz: "${frase}"`
+          prioridad,
+          notas: `Dictado por voz: "${texto}"`
         };
       };
 
-      // Iniciar Reconocimiento de Voz Web Speech API
-      const iniciarDictado = (modo = 'asistente') => {
-        setErrorVoz('');
+      const procesarDictado = (textoEntrada) => {
+        const base = textoEntrada !== undefined ? textoEntrada : textoDictado;
+        if (!base.trim()) {
+          mostrarMensaje('Dicta o escribe una frase primero', 'alerta');
+          return;
+        }
+        const corregido = aplicarVocabularioPersonalizado(base);
+        setTextoDictado(corregido);
+        const analizado = analizarTextoLocalmente(corregido);
+        setPropuestaVoz(analizado);
+      };
+
+      const alternarReconocimientoVoz = (destino = 'inteligente') => {
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+        if (escuchandoVoz && recognitionRef.current) {
+          try { recognitionRef.current.stop(); } catch (e) {}
+          setEscuchandoVoz(false);
+          setCampoDictadoActivo(null);
+          return;
+        }
+
         if (!SpeechRecognition) {
-          setErrorVoz('Tu navegador no soporta dictado por voz directo. Usa Chrome, Edge o Safari en un enlace HTTPS.');
+          mostrarMensaje('Usa Chrome, Edge o Safari para activar el micrófono, o selecciona un ejemplo abajo.', 'alerta');
           return;
         }
 
-        if (escuchando && recognitionRef.current) {
-          recognitionRef.current.stop();
-          setEscuchando(false);
-          return;
+        try {
+          const recognition = new SpeechRecognition();
+          recognition.lang = 'es-MX';
+          recognition.continuous = false;
+          recognition.interimResults = true;
+
+          recognition.onstart = () => {
+            setEscuchandoVoz(true);
+            setCampoDictadoActivo(destino);
+          };
+
+          recognition.onresult = (event) => {
+            let transcripcion = '';
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+              transcripcion += event.results[i][0].transcript;
+            }
+            const corregido = aplicarVocabularioPersonalizado(transcripcion);
+
+            if (destino === 'inteligente') {
+              setTextoDictado(corregido);
+              setPropuestaVoz(analizarTextoLocalmente(corregido));
+            } else if (destino === 'titulo') {
+              setFormData((prev) => ({ ...prev, titulo: corregido }));
+            } else if (destino === 'notas') {
+              setFormData((prev) => ({ ...prev, notas: prev.notas ? `${prev.notas} ${corregido}`.trim() : corregido }));
+            }
+          };
+
+          recognition.onerror = () => {
+            setEscuchandoVoz(false);
+            setCampoDictadoActivo(null);
+            mostrarMensaje('Verifica el permiso del micrófono en tu navegador.', 'alerta');
+          };
+
+          recognition.onend = () => {
+            setEscuchandoVoz(false);
+            setCampoDictadoActivo(null);
+          };
+
+          recognitionRef.current = recognition;
+          recognition.start();
+        } catch (e) {
+          setEscuchandoVoz(false);
+          setCampoDictadoActivo(null);
         }
-
-        const recognition = new SpeechRecognition();
-        recognition.lang = 'es-MX';
-        recognition.continuous = false;
-        recognition.interimResults = true;
-
-        recognition.onstart = () => {
-          setEscuchando(true);
-          setCampoEscuchando(modo);
-          if (modo === 'asistente') setTextoDictado('');
-        };
-
-        recognition.onresult = (event) => {
-          let transcripcion = '';
-          for (let i = event.resultIndex; i < event.results.length; i++) {
-            transcripcion += event.results[i][0].transcript;
-          }
-          const corregido = aplicarCorreccionVocabulario(transcripcion);
-
-          if (modo === 'asistente') {
-            setTextoDictado(corregido);
-            const interpretado = interpretarFraseNatural(corregido);
-            setForm(interpretado);
-          } else if (modo === 'titulo') {
-            setForm((prev) => ({ ...prev, titulo: corregido }));
-          } else if (modo === 'notas') {
-            setForm((prev) => ({ ...prev, notas: prev.notas ? `${prev.notas} ${corregido}` : corregido }));
-          }
-        };
-
-        recognition.onerror = (event) => {
-          setEscuchando(false);
-          setCampoEscuchando(null);
-          if (event.error === 'not-allowed') {
-            setErrorVoz('Permiso de micrófono bloqueado. Asegúrate de abrir la app desde GitHub Pages (HTTPS) y permitir el micrófono.');
-          } else {
-            setErrorVoz(`Aviso de micrófono: ${event.error}`);
-          }
-        };
-
-        recognition.onend = () => {
-          setEscuchando(false);
-          setCampoEscuchando(null);
-        };
-
-        recognitionRef.current = recognition;
-        recognition.start();
       };
 
-      // Guardar o actualizar un compromiso
+      // CRUD Compromisos
+      const abrirModalNuevo = (ambitoPredefinido = null, fechaPredefinida = null) => {
+        const ambitoElegido = ambitoPredefinido && AMBITOS[ambitoPredefinido] ? ambitoPredefinido : 'Arte y Video';
+        setCompromisoEditando(null);
+        setFormData({
+          titulo: '',
+          ambito: ambitoElegido,
+          subcategoria: AMBITOS[ambitoElegido].subcategorias[0],
+          fecha: fechaPredefinida || formatDateISO(new Date()),
+          horaInicio: '09:00',
+          horaFin: '10:30',
+          prioridad: 'Media',
+          notas: '',
+          completado: false
+        });
+        setModalAbierto(true);
+      };
+
+      const abrirModalEditar = (item) => {
+        setCompromisoEditando(item);
+        setFormData({
+          titulo: item.titulo || '',
+          ambito: item.ambito || 'Arte y Video',
+          subcategoria: item.subcategoria || AMBITOS[item.ambito || 'Arte y Video'].subcategorias[0],
+          fecha: item.fecha || formatDateISO(new Date()),
+          horaInicio: item.horaInicio || '09:00',
+          horaFin: item.horaFin || '10:30',
+          prioridad: item.prioridad || 'Media',
+          notas: item.notas || '',
+          completado: Boolean(item.completado)
+        });
+        setModalAbierto(true);
+      };
+
       const guardarCompromiso = (e) => {
         if (e) e.preventDefault();
-        if (!form.titulo.trim()) return;
+        if (!formData.titulo.trim()) {
+          mostrarMensaje('Ingresa un título para el compromiso', 'alerta');
+          return;
+        }
+        const id = compromisoEditando ? compromisoEditando.id : `comp-${Date.now()}`;
+        const nuevoObjeto = {
+          ...formData,
+          titulo: formData.titulo.trim(),
+          id,
+          creadoEn: compromisoEditando ? compromisoEditando.creadoEn : Date.now()
+        };
 
-        if (editandoId) {
-          const actualizados = compromisos.map((c) =>
-            c.id === editandoId ? { ...c, ...form } : c
-          );
-          setCompromisos(actualizados);
-          if (nubeConectada && dbRef.current) {
-            dbRef.current.collection('agenda_compromisos').doc(editandoId).set({ ...form, completado: false }, { merge: true });
-          }
+        if (compromisoEditando) {
+          setCompromisos((prev) => prev.map((c) => (c.id === id ? nuevoObjeto : c)));
         } else {
-          const nuevo = {
-            ...form,
-            id: 'item-' + Date.now(),
-            completado: false
-          };
-          setCompromisos([nuevo, ...compromisos]);
-          if (nubeConectada && dbRef.current) {
-            dbRef.current.collection('agenda_compromisos').doc(nuevo.id).set(nuevo);
-          }
+          setCompromisos((prev) => [...prev, nuevoObjeto]);
+        }
+
+        if (sincronizadoNube && dbRef.current) {
+          dbRef.current.collection('agenda_compromisos_v2').doc(id).set(nuevoObjeto, { merge: true });
         }
 
         setModalAbierto(false);
-        setModalVozAbierto(false);
-        setEditandoId(null);
+        mostrarMensaje(compromisoEditando ? 'Compromiso actualizado' : 'Compromiso agendado correctamente');
       };
 
-      const alternarCompletado = (id) => {
-        const actualizados = compromisos.map((c) =>
-          c.id === id ? { ...c, completado: !c.completado } : c
-        );
-        setCompromisos(actualizados);
-        const encontrado = actualizados.find((c) => c.id === id);
-        if (nubeConectada && dbRef.current && encontrado) {
-          dbRef.current.collection('agenda_compromisos').doc(id).update({ completado: encontrado.completado });
+      const confirmarPropuestaVoz = () => {
+        if (!propuestaVoz || !propuestaVoz.titulo) return;
+        const id = `comp-${Date.now()}`;
+        const nuevo = { ...propuestaVoz, id, completado: false, creadoEn: Date.now() };
+        setCompromisos((prev) => [...prev, nuevo]);
+        if (sincronizadoNube && dbRef.current) {
+          dbRef.current.collection('agenda_compromisos_v2').doc(id).set(nuevo);
         }
+        setPropuestaVoz(null);
+        setTextoDictado('');
+        setModalVozAbierto(false);
+        mostrarMensaje('Compromiso por voz agendado con éxito');
+      };
+
+      const alternarCompletado = (item) => {
+        const actualizado = { ...item, completado: !item.completado };
+        setCompromisos((prev) => prev.map((c) => (c.id === item.id ? actualizado : c)));
+        if (sincronizadoNube && dbRef.current) {
+          dbRef.current.collection('agenda_compromisos_v2').doc(item.id).set(actualizado, { merge: true });
+        }
+        mostrarMensaje(actualizado.completado ? 'Marcado como completado' : 'Marcado como pendiente');
       };
 
       const eliminarCompromiso = (id) => {
-        setCompromisos(compromisos.filter((c) => c.id !== id));
-        if (nubeConectada && dbRef.current) {
-          dbRef.current.collection('agenda_compromisos').doc(id).delete();
+        setCompromisos((prev) => prev.filter((c) => c.id !== id));
+        if (sincronizadoNube && dbRef.current) {
+          dbRef.current.collection('agenda_compromisos_v2').doc(id).delete();
         }
+        mostrarMensaje('Compromiso eliminado');
       };
 
-      const abrirNuevoCompromiso = (ambitoInicial = 'arte_video') => {
-        setEditandoId(null);
-        setForm({
-          titulo: '',
-          ambito: ambitoInicial,
-          subcategoria: AMBITOS[ambitoInicial].subcategorias[0],
-          fecha: fechaSeleccionada || obtenerHoyISO(),
-          horaInicio: '09:00',
-          horaFin: '10:00',
-          prioridad: 'media',
-          notas: ''
+      // Cálculos y Estadísticas
+      const hoyISO = formatDateISO(new Date());
+
+      const compromisosOrdenados = useMemo(() => {
+        return [...compromisos].sort((a, b) => {
+          if (a.fecha !== b.fecha) return a.fecha.localeCompare(b.fecha);
+          return (a.horaInicio || '00:00').localeCompare(b.horaInicio || '00:00');
         });
-        setModalAbierto(true);
-      };
+      }, [compromisos]);
 
-      const abrirEdicion = (item) => {
-        setEditandoId(item.id);
-        setForm({
-          titulo: item.titulo,
-          ambito: item.ambito,
-          subcategoria: item.subcategoria,
-          fecha: item.fecha,
-          horaInicio: item.horaInicio,
-          horaFin: item.horaFin,
-          prioridad: item.prioridad,
-          notas: item.notas || ''
+      const compromisosFiltrados = useMemo(() => {
+        return compromisosOrdenados.filter((item) => {
+          const coincideAmbito = filtroAmbito === 'Todos' || item.ambito === filtroAmbito;
+          const coincideEstado =
+            filtroEstado === 'Todos' ||
+            (filtroEstado === 'Pendientes' && !item.completado) ||
+            (filtroEstado === 'Completados' && item.completado);
+          const q = busqueda.toLowerCase().trim();
+          const coincideBusqueda =
+            !q ||
+            item.titulo?.toLowerCase().includes(q) ||
+            item.subcategoria?.toLowerCase().includes(q) ||
+            item.notas?.toLowerCase().includes(q);
+          return coincideAmbito && coincideEstado && coincideBusqueda;
         });
-        setModalAbierto(true);
+      }, [compromisosOrdenados, filtroAmbito, filtroEstado, busqueda]);
+
+      const estadisticas = useMemo(() => {
+        const total = compromisos.length;
+        const pendientes = compromisos.filter((c) => !c.completado).length;
+        const completados = compromisos.filter((c) => c.completado).length;
+        const deHoy = compromisosOrdenados.filter((c) => c.fecha === hoyISO);
+        const porAmbito = {
+          'Arte y Video': {
+            total: compromisos.filter((c) => c.ambito === 'Arte y Video').length,
+            pendientes: compromisos.filter((c) => c.ambito === 'Arte y Video' && !c.completado).length
+          },
+          'Preparatoria Lázaro Cárdenas': {
+            total: compromisos.filter((c) => c.ambito === 'Preparatoria Lázaro Cárdenas').length,
+            pendientes: compromisos.filter((c) => c.ambito === 'Preparatoria Lázaro Cárdenas' && !c.completado).length
+          },
+          'Personal': {
+            total: compromisos.filter((c) => c.ambito === 'Personal').length,
+            pendientes: compromisos.filter((c) => c.ambito === 'Personal' && !c.completado).length
+          }
+        };
+        return { total, pendientes, completados, deHoy, porAmbito };
+      }, [compromisos, compromisosOrdenados, hoyISO]);
+
+      // Utilidades de Calendario Mensual y Semanal
+      const nombresMeses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+      const diasSemanaCorto = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+
+      const obtenerDiasDelMes = (fechaBase) => {
+        const year = fechaBase.getFullYear();
+        const month = fechaBase.getMonth();
+        const primerDiaMes = new Date(year, month, 1);
+        const ultimoDiaMes = new Date(year, month + 1, 0);
+        const dias = [];
+        const offsetInicio = primerDiaMes.getDay();
+
+        for (let i = offsetInicio - 1; i >= 0; i--) {
+          const d = new Date(year, month, -i);
+          dias.push({ fechaObj: d, iso: formatDateISO(d), esMesActual: false });
+        }
+        for (let d = 1; d <= ultimoDiaMes.getDate(); d++) {
+          const dateObj = new Date(year, month, d);
+          dias.push({ fechaObj: dateObj, iso: formatDateISO(dateObj), esMesActual: true });
+        }
+        const restantes = 42 - dias.length;
+        for (let i = 1; i <= restantes; i++) {
+          const d = new Date(year, month + 1, i);
+          dias.push({ fechaObj: d, iso: formatDateISO(d), esMesActual: false });
+        }
+        return dias;
       };
 
-      // Exportar e Importar JSON para respaldo manual entre equipos
-      const exportarRespaldoJSON = () => {
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ compromisos, vocabulario }, null, 2));
+      const obtenerDiasDeLaSemana = (fechaBase) => {
+        const start = new Date(fechaBase);
+        const day = start.getDay();
+        start.setDate(start.getDate() - day);
+        const dias = [];
+        for (let i = 0; i < 7; i++) {
+          const d = addDays(start, i);
+          dias.push({ fechaObj: d, iso: formatDateISO(d), esMesActual: true });
+        }
+        return dias;
+      };
+
+      const navegarCalendario = (direccion) => {
+        const nueva = new Date(fechaCursor);
+        if (modoCalendario === 'mes') nueva.setMonth(nueva.getMonth() + direccion);
+        else nueva.setDate(nueva.getDate() + direccion * 7);
+        setFechaCursor(nueva);
+      };
+
+      const formatearFechaHumana = (isoStr) => {
+        if (!isoStr) return '';
+        const [y, m, d] = isoStr.split('-').map(Number);
+        const dateObj = new Date(y, m - 1, d);
+        return dateObj.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' });
+      };
+
+      // Exportar e Importar Respaldo JSON
+      const exportarJSON = () => {
+        const str = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ compromisos, vocabulario }, null, 2));
         const a = document.createElement('a');
-        a.setAttribute("href", dataStr);
-        a.setAttribute("download", `respaldo-agenda-${obtenerHoyISO()}.json`);
+        a.setAttribute("href", str);
+        a.setAttribute("download", `agenda-javier-${hoyISO}.json`);
         document.body.appendChild(a);
         a.click();
         a.remove();
       };
 
-      const importarRespaldoJSON = (e) => {
+      const importarJSON = (e) => {
         const file = e.target.files[0];
         if (!file) return;
         const reader = new FileReader();
@@ -555,153 +823,166 @@
             const data = JSON.parse(ev.target.result);
             if (Array.isArray(data.compromisos)) setCompromisos(data.compromisos);
             if (Array.isArray(data.vocabulario)) setVocabulario(data.vocabulario);
-            alert('Respaldo restaurado correctamente.');
+            mostrarMensaje('Respaldo restaurado con éxito');
           } catch {
-            alert('El archivo seleccionado no es un respaldo válido.');
+            mostrarMensaje('Archivo inválido', 'alerta');
           }
         };
         reader.readAsText(file);
       };
 
-      // Filtrado y métricas
-      const compromisosFiltrados = useMemo(() => {
-        return compromisos
-          .filter((c) => (filtroAmbito === 'todos' ? true : c.ambito === filtroAmbito))
-          .filter((c) => {
-            if (filtroEstado === 'pendientes') return !c.completado;
-            if (filtroEstado === 'completados') return c.completado;
-            return true;
-          })
-          .filter((c) => {
-            if (!busqueda.trim()) return true;
-            const q = busqueda.toLowerCase();
-            return (
-              c.titulo.toLowerCase().includes(q) ||
-              c.subcategoria.toLowerCase().includes(q) ||
-              (c.notas && c.notas.toLowerCase().includes(q))
-            );
-          })
-          .sort((a, b) => `${a.fecha} ${a.horaInicio}`.localeCompare(`${b.fecha} ${b.horaInicio}`));
-      }, [compromisos, filtroAmbito, filtroEstado, busqueda]);
+      // Subcomponente Tarjeta de Compromiso
+      const TarjetaCompromiso = ({ item }) => {
+        const configAmbito = AMBITOS[item.ambito] || AMBITOS['Personal'];
+        const configPrioridad = PRIORIDADES[item.prioridad] || PRIORIDADES['Media'];
 
-      const metricas = useMemo(() => {
-        const total = compromisos.length || 1;
-        const conteo = {
-          arte_video: compromisos.filter((c) => c.ambito === 'arte_video').length,
-          prepa: compromisos.filter((c) => c.ambito === 'prepa').length,
-          personal: compromisos.filter((c) => c.ambito === 'personal').length
-        };
-        return {
-          conteo,
-          porcentajes: {
-            arte_video: Math.round((conteo.arte_video / total) * 100),
-            prepa: Math.round((conteo.prepa / total) * 100),
-            personal: Math.round((conteo.personal / total) * 100)
-          },
-          hoy: compromisos.filter((c) => c.fecha === obtenerHoyISO() && !c.completado).length
-        };
-      }, [compromisos]);
+        return (
+          <div className={`relative group rounded-2xl border p-4 transition-all bg-white dark:bg-slate-900 shadow-xs hover:shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4 overflow-hidden ${item.completado ? 'opacity-60 border-slate-200 dark:border-slate-800' : 'border-slate-200 dark:border-slate-800'}`}>
+            <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${configAmbito.dotClass}`} />
+            <div className="flex items-start gap-3.5 pl-2">
+              <button
+                onClick={() => alternarCompletado(item)}
+                className="mt-1 text-slate-400 hover:text-emerald-500 transition-colors"
+                title={item.completado ? 'Marcar como pendiente' : 'Marcar como completado'}
+              >
+                <Icon name={item.completado ? 'check-circle-2' : 'circle'} className={`w-5 h-5 ${item.completado ? 'text-emerald-500' : ''}`} />
+              </button>
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${configAmbito.badgeClass}`}>
+                    {configAmbito.nombre}
+                  </span>
+                  {item.subcategoria && (
+                    <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                      {item.subcategoria}
+                    </span>
+                  )}
+                  <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-md border ${configPrioridad.color}`}>
+                    Prioridad {item.prioridad}
+                  </span>
+                </div>
+                <h4 className={`font-bold text-sm sm:text-base ${item.completado ? 'line-through text-slate-400' : 'text-slate-900 dark:text-white'}`}>
+                  {item.titulo}
+                </h4>
+                {item.notas && (
+                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">{item.notas}</p>
+                )}
+              </div>
+            </div>
 
-      // Próximos 7 días para la vista de Calendario Semanal Rápido
-      const diasSemana = useMemo(() => {
-        const base = new Date(fechaSeleccionada + 'T12:00:00');
-        const lista = [];
-        for (let i = -2; i <= 4; i++) {
-          const d = new Date(base);
-          d.setDate(base.getDate() + i);
-          const iso = d.toISOString().split('T')[0];
-          lista.push({
-            iso,
-            diaSemana: d.toLocaleDateString('es-MX', { weekday: 'short' }),
-            diaNumero: d.getDate(),
-            mesCorto: d.toLocaleDateString('es-MX', { month: 'short' }),
-            cantidad: compromisos.filter((c) => c.fecha === iso).length
-          });
-        }
-        return lista;
-      }, [fechaSeleccionada, compromisos]);
+            <div className="flex sm:flex-col items-center sm:items-end justify-between gap-2 shrink-0 pl-2 sm:pl-0 border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-100 dark:border-slate-800">
+              <div className="text-xs font-semibold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                <Icon name="clock" className="w-3.5 h-3.5 text-slate-400" />
+                <span>{item.fecha} · {item.horaInicio} - {item.horaFin}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => abrirModalEditar(item)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  title="Editar"
+                >
+                  <Icon name="edit-3" className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => eliminarCompromiso(item.id)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                  title="Eliminar"
+                >
+                  <Icon name="trash-2" className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      };
+
+      const diasMesActual = useMemo(() => obtenerDiasDelMes(fechaCursor), [fechaCursor]);
+      const diasSemanaActual = useMemo(() => obtenerDiasDeLaSemana(fechaCursor), [fechaCursor]);
 
       return (
         <div className="min-h-screen flex flex-col">
+          {/* Notificación flotante */}
+          {notificacion && (
+            <div className="fixed bottom-5 right-5 z-50 px-4 py-3 rounded-xl shadow-xl border bg-slate-900 text-white border-slate-700 flex items-center gap-2 text-xs sm:text-sm font-medium">
+              <Icon name={notificacion.tipo === 'alerta' ? 'alert-circle' : 'check-circle-2'} className="w-4 h-4 text-amber-400" />
+              <span>{notificacion.texto}</span>
+            </div>
+          )}
+
           {/* Barra Superior */}
-          <header className="bg-slate-900 text-white sticky top-0 z-30 shadow-lg border-b border-slate-800">
+          <header className="sticky top-0 z-30 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 via-indigo-600 to-emerald-500 flex items-center justify-center shadow-md">
-                  <Icon name="calendar-check-2" className="w-6 h-6 text-white" />
+                  <Icon name="calendar" className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h1 className="font-bold text-base sm:text-lg tracking-tight leading-tight">
-                    Agenda Integral · Javier Tapia
+                  <h1 className="font-extrabold text-base sm:text-lg tracking-tight leading-tight">
+                    Agenda Integral 3 Ámbitos
                   </h1>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
                     Arte y Video · Prepa Lázaro Cárdenas · Personal
                   </p>
                 </div>
               </div>
 
-              {/* Pestañas de Navegación */}
-              <nav className="flex items-center gap-1 bg-slate-800/90 p-1 rounded-xl border border-slate-700">
+              {/* Pestañas Centrales */}
+              <nav className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
                 {[
-                  { id: 'resumen', label: 'Resumen', icon: 'layout-dashboard' },
-                  { id: 'calendario', label: 'Calendario', icon: 'calendar-days' },
-                  { id: 'lista', label: 'Compromisos', icon: 'list-todo' },
-                  { id: 'vocabulario', label: 'Vocabulario Voz', icon: 'book-a' }
+                  { id: 'dashboard', label: 'Resumen', icon: 'layout-dashboard' },
+                  { id: 'calendario', label: 'Calendario', icon: 'calendar' },
+                  { id: 'lista', label: 'Compromisos', icon: 'list-todo' }
                 ].map((tab) => (
                   <button
                     key={tab.id}
                     onClick={() => setVistaActiva(tab.id)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition ${
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition ${
                       vistaActiva === tab.id
-                        ? 'bg-indigo-600 text-white shadow'
-                        : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
+                        ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                     }`}
                   >
                     <Icon name={tab.icon} className="w-4 h-4" />
-                    <span className="hidden md:inline">{tab.label}</span>
+                    <span>{tab.label}</span>
                   </button>
                 ))}
               </nav>
 
-              {/* Acciones Rápidas: Dictado, Nube y Nuevo */}
+              {/* Botones de Acción */}
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => {
-                    setTextoDictado('');
-                    setErrorVoz('');
-                    abrirNuevoCompromiso('arte_video');
-                    setModalAbierto(false);
+                    setTabModalVoz('dictar');
                     setModalVozAbierto(true);
                   }}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs sm:text-sm font-semibold shadow transition"
-                  title="Dictar compromiso por voz (es-MX)"
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs sm:text-sm font-bold shadow transition"
                 >
                   <Icon name="mic" className="w-4 h-4" />
-                  <span>Dictar</span>
+                  <span>Dictado Voz</span>
                 </button>
 
                 <button
-                  onClick={() => openNuevoConAmbito()}
-                  onClickCapture={(e) => {
-                    e.stopPropagation();
-                    abrirNuevoCompromiso(filtroAmbito === 'todos' ? 'arte_video' : filtroAmbito);
-                  }}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs sm:text-sm font-bold shadow transition"
+                  onClick={() => abrirModalNuevo(filtroAmbito !== 'Todos' ? filtroAmbito : 'Arte y Video')}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs sm:text-sm font-bold shadow transition"
                 >
                   <Icon name="plus" className="w-4 h-4" />
-                  <span>Nuevo</span>
+                  <span className="hidden sm:inline">Nuevo</span>
                 </button>
 
                 <button
                   onClick={() => setModalNubeAbierto(true)}
-                  className={`p-2 rounded-xl border text-xs transition ${
-                    nubeConectada
-                      ? 'bg-emerald-950/80 border-emerald-600 text-emerald-300'
-                      : 'bg-slate-800 border-slate-700 text-slate-300 hover:text-white'
-                  }`}
-                  title="Sincronización Nube y Respaldos"
+                  className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  title="Sincronización y Respaldo"
                 >
-                  <Icon name="cloud" className="w-4 h-4" />
+                  <Icon name="settings-2" className="w-4 h-4" />
+                </button>
+
+                <button
+                  onClick={() => setDarkMode(!darkMode)}
+                  className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  title="Cambiar tema claro/oscuro"
+                >
+                  <Icon name={darkMode ? 'sun' : 'moon'} className="w-4 h-4" />
                 </button>
               </div>
             </div>
@@ -709,47 +990,50 @@
 
           {/* Contenido Principal */}
           <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
-            {/* Tarjetas de los 3 Ámbitos (Filtro Rápido + Equilibrio) */}
+            {/* Tarjetas de los 3 Ámbitos */}
             <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {Object.values(AMBITOS).map((amb) => {
+                const stats = estadisticas.porAmbito[amb.id] || { total: 0, pendientes: 0 };
+                const porcentaje = estadisticas.total > 0 ? Math.round((stats.total / estadisticas.total) * 100) : 0;
                 const activo = filtroAmbito === amb.id;
-                const cant = metricas.conteo[amb.id];
-                const porc = metricas.porcentajes[amb.id];
+
                 return (
                   <div
                     key={amb.id}
-                    onClick={() => setFiltroAmbito(activo ? 'todos' : amb.id)}
-                    className={`cursor-pointer rounded-2xl p-4 border-2 transition-all bg-white shadow-sm hover:shadow-md ${
-                      activo ? `${amb.colorBorder} ring-2 ring-offset-2 ring-indigo-500` : 'border-slate-200/80'
+                    onClick={() => setFiltroAmbito(activo ? 'Todos' : amb.id)}
+                    className={`cursor-pointer rounded-2xl p-5 border transition-all bg-white dark:bg-slate-900 shadow-xs hover:shadow-md ${
+                      activo ? 'ring-2 ring-indigo-500 border-indigo-500' : 'border-slate-200 dark:border-slate-800'
                     }`}
                   >
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2.5">
-                        <span className={`w-10 h-10 rounded-xl ${amb.colorBg} ${amb.colorText} flex items-center justify-center`}>
-                          <Icon name={amb.icono} className="w-5 h-5" />
-                        </span>
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-11 h-11 rounded-xl ${amb.bgLight} ${amb.textClass} flex items-center justify-center border ${amb.borderLight}`}>
+                          <Icon name={amb.icon} className="w-5 h-5" />
+                        </div>
                         <div>
-                          <h2 className="font-bold text-slate-900 text-sm sm:text-base">{amb.nombre}</h2>
-                          <p className="text-xs text-slate-500">{cant} compromisos registrados</p>
+                          <h2 className="font-bold text-sm sm:text-base">{amb.nombre}</h2>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">{stats.pendientes} pendientes · {stats.total} total</p>
                         </div>
                       </div>
-                      <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${amb.badgeBg}`}>
-                        {porc}%
+                      <span className={`text-xs font-extrabold px-2.5 py-1 rounded-full border ${amb.badgeClass}`}>
+                        {porcentaje}%
                       </span>
                     </div>
-                    <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                      <div className={`h-full ${amb.accent} transition-all duration-500`} style={{ width: `${porc}%` }} />
+
+                    <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden mb-3">
+                      <div className={`h-full ${amb.dotClass}`} style={{ width: `${porcentaje}%` }} />
                     </div>
-                    <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
-                      <span>{activo ? 'Filtro activo (clic para ver todos)' : 'Clic para filtrar este ámbito'}</span>
+
+                    <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                      <span>{activo ? 'Filtro activo (clic para quitar)' : 'Clic para filtrar ámbito'}</span>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          abrirNuevoCompromiso(amb.id);
+                          abrirModalNuevo(amb.id);
                         }}
-                        className="font-semibold text-slate-800 hover:underline flex items-center gap-1"
+                        className={`font-bold ${amb.textClass} hover:underline`}
                       >
-                        + Agendar aquí
+                        + Agendar
                       </button>
                     </div>
                   </div>
@@ -757,329 +1041,273 @@
               })}
             </section>
 
-            {/* VISTA 1: RESUMEN Y AGENDA DE HOY */}
-            {vistaActiva === 'resumen' && (
+            {/* VISTA 1: DASHBOARD / RESUMEN */}
+            {vistaActiva === 'dashboard' && (
               <div className="space-y-6">
-                {/* Banner de Dictado Rápido */}
-                <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-2xl p-5 text-white shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                {/* Banner de Dictado por Voz Personalizado */}
+                <div className="rounded-2xl p-5 bg-gradient-to-r from-indigo-950 via-slate-900 to-rose-950 text-white border border-indigo-800/50 shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                   <div className="space-y-1">
-                    <div className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-amber-400">
-                      <Icon name="sparkles" className="w-3.5 h-3.5" />
-                      <span>Dictado Inteligente en Español (es-MX)</span>
+                    <div className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-amber-400">
+                      <Icon name="wand-2" className="w-4 h-4" />
+                      <span>Dictado Inteligente con Vocabulario Personalizado (es-MX)</span>
                     </div>
-                    <h3 className="text-base sm:text-lg font-bold">
-                      Habla con naturalidad y clasifica tus compromisos al instante
+                    <h3 className="text-base sm:text-lg font-extrabold">
+                      Agenda compromisos hablando con naturalidad
                     </h3>
                     <p className="text-xs sm:text-sm text-slate-300">
-                      Ejemplo: <em>"Mañana a las 5 de la tarde sesión fotográfica en Arte y Video urgente"</em> o <em>"Cabina Fuerza Puma a las 12"</em>.
+                      Reconoce automáticamente tus términos: <strong>Cananea, Fuerza Puma, 95.1 FM, Taller de Medios, Fine Art, Vértice y Lázaro Cárdenas</strong>.
                     </p>
                   </div>
-                  <button
-                    onClick={() => {
-                      setTextoDictado('');
-                      setErrorVoz('');
-                      setModalVozAbierto(true);
-                    }}
-                    className="shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-semibold text-sm shadow-lg transition"
-                  >
-                    <Icon name="mic" className="w-4 h-4" />
-                    <span>Abrir Asistente de Voz</span>
-                  </button>
-                </div>
-
-                {/* Filtros y Buscador */}
-                <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex items-center gap-2 flex-1 min-w-[220px]">
-                    <Icon name="search" className="w-4 h-4 text-slate-400" />
-                    <input
-                      type="text"
-                      value={busqueda}
-                      onChange={(e) => setBusqueda(e.target.value)}
-                      placeholder="Buscar por título, Taller de Medios, Fine Art, Radio..."
-                      className="w-full text-sm bg-transparent focus:outline-none text-slate-800"
-                    />
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    {['todos', 'pendientes', 'completados'].map((est) => (
-                      <button
-                        key={est}
-                        onClick={() => setFiltroEstado(est)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition ${
-                          filtroEstado === est
-                            ? 'bg-slate-900 text-white'
-                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                        }`}
-                      >
-                        {est}
-                      </button>
-                    ))}
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => {
+                        setTabModalVoz('dictar');
+                        setModalVozAbierto(true);
+                      }}
+                      className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs sm:text-sm flex items-center gap-2 shadow-md transition"
+                    >
+                      <Icon name="mic" className="w-4 h-4" />
+                      <span>Dictar Compromiso</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setTabModalVoz('vocabulario');
+                        setModalVozAbierto(true);
+                      }}
+                      className="px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs sm:text-sm border border-slate-700 transition"
+                    >
+                      Vocabulario ({vocabulario.length})
+                    </button>
                   </div>
                 </div>
 
-                {/* Lista de Compromisos */}
-                <div className="space-y-3">
-                  {compromisosFiltrados.length === 0 ? (
-                    <div className="bg-white rounded-2xl border border-dashed border-slate-300 p-10 text-center space-y-2">
-                      <p className="text-slate-600 font-medium">No hay compromisos que coincidan con este filtro.</p>
-                      <button
-                        onClick={() => abrirNuevoCompromiso('arte_video')}
-                        className="inline-flex items-center gap-1.5 text-sm font-semibold text-indigo-600 hover:underline"
-                      >
-                        + Crear un nuevo compromiso ahora
-                      </button>
+                {/* Enfoque de Hoy + Próximos Compromisos */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  <div className="lg:col-span-1 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="font-bold text-base">Agenda de Hoy</h3>
+                        <p className="text-xs text-slate-500 capitalize">{formatearFechaHumana(hoyISO)}</p>
+                      </div>
+                      <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300">
+                        {estadisticas.deHoy.length} hoy
+                      </span>
                     </div>
-                  ) : (
-                    compromisosFiltrados.map((item) => {
-                      const amb = AMBITOS[item.ambito] || AMBITOS.personal;
-                      return (
-                        <div
-                          key={item.id}
-                          className={`bg-white rounded-2xl p-4 border transition shadow-sm hover:shadow flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
-                            item.completado ? 'opacity-60 border-slate-200 bg-slate-50' : 'border-slate-200'
-                          }`}
-                        >
-                          <div className="flex items-start gap-3.5">
-                            <button
-                              onClick={() => alternarCompletado(item.id)}
-                              className={`mt-1 w-5 h-5 rounded-md border-2 flex items-center justify-center transition ${
-                                item.completado
-                                  ? 'bg-emerald-600 border-emerald-600 text-white'
-                                  : 'border-slate-300 hover:border-indigo-600'
-                              }`}
-                              title="Marcar completado"
-                            >
-                              {item.completado && <Icon name="check" className="w-3.5 h-3.5" />}
-                            </button>
-                            <div className="space-y-1">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${amb.badgeBg}`}>
-                                  {amb.corto}
-                                </span>
-                                <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
-                                  {item.subcategoria}
-                                </span>
-                                {item.prioridad === 'alta' && (
-                                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-rose-100 text-rose-800">
-                                    Prioridad Alta
-                                  </span>
-                                )}
-                              </div>
-                              <h4 className={`font-bold text-slate-900 text-sm sm:text-base ${item.completado ? 'line-through text-slate-500' : ''}`}>
-                                {item.titulo}
-                              </h4>
-                              {item.notas && (
-                                <p className="text-xs text-slate-600 leading-relaxed">{item.notas}</p>
-                              )}
-                            </div>
-                          </div>
 
-                          <div className="flex sm:flex-col items-center sm:items-end justify-between gap-2 shrink-0 border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-100">
-                            <div className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
-                              <Icon name="clock" className="w-3.5 h-3.5 text-slate-400" />
-                              <span>{item.fecha} · {item.horaInicio} - {item.horaFin}</span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <button
-                                onClick={() => abrirEdicion(item)}
-                                className="p-1.5 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-slate-100"
-                                title="Editar"
-                              >
-                                <Icon name="pencil" className="w-4 h-4" />
+                    {estadisticas.deHoy.length === 0 ? (
+                      <div className="p-6 text-center border border-dashed border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-500">
+                        No tienes compromisos registrados para hoy.
+                      </div>
+                    ) : (
+                      <div className="space-y-2.5">
+                        {estadisticas.deHoy.map((item) => {
+                          const amb = AMBITOS[item.ambito] || AMBITOS['Personal'];
+                          return (
+                            <div key={item.id} className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2.5">
+                                <span className={`w-2.5 h-2.5 rounded-full ${amb.dotClass}`} />
+                                <div>
+                                  <p className={`text-xs font-bold ${item.completado ? 'line-through text-slate-400' : ''}`}>{item.titulo}</p>
+                                  <p className="text-[11px] text-slate-500">{item.horaInicio} · {amb.nombre}</p>
+                                </div>
+                              </div>
+                              <button onClick={() => abrirModalEditar(item)} className="text-xs text-indigo-500 font-semibold">
+                                Ver
                               </button>
-                              <button
-                                onClick={() => eliminarCompromiso(item.id)}
-                                className="p-1.5 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50"
-                                title="Eliminar"
-                              >
-                                <Icon name="trash-2" className="w-4 h-4" />
-                              </button>
                             </div>
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Lista Filtrada Principal */}
+                  <div className="lg:col-span-2 space-y-4">
+                    <div className="bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+                        <Icon name="search" className="w-4 h-4 text-slate-400" />
+                        <input
+                          type="text"
+                          value={busqueda}
+                          onChange={(e) => setBusqueda(e.target.value)}
+                          placeholder="Buscar sesión, Fuerza Puma, Fine Art, Vértice..."
+                          className="w-full text-xs sm:text-sm bg-transparent focus:outline-none"
+                        />
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {['Todos', 'Pendientes', 'Completados'].map((est) => (
+                          <button
+                            key={est}
+                            onClick={() => setFiltroEstado(est)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                              filtroEstado === est
+                                ? 'bg-indigo-600 text-white'
+                                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                            }`}
+                          >
+                            {est}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      {compromisosFiltrados.map((item) => (
+                        <TarjetaCompromiso key={item.id} item={item} />
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
 
-            {/* VISTA 2: CALENDARIO SEMANAL Y POR DÍA */}
+            {/* VISTA 2: CALENDARIO MENSUAL Y SEMANAL */}
             {vistaActiva === 'calendario' && (
-              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-5">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <h3 className="font-bold text-slate-900 text-base">Selector de Fecha y Agenda Diaria</h3>
-                    <p className="text-xs text-slate-500">Consulta o programa actividades por día específico</p>
-                  </div>
-                  <input
-                    type="date"
-                    value={fechaSeleccionada}
-                    onChange={(e) => setFechaSeleccionada(e.target.value)}
-                    className="px-3 py-2 rounded-xl border border-slate-300 text-sm font-medium"
-                  />
-                </div>
-
-                <div className="grid grid-cols-7 gap-2">
-                  {diasSemana.map((d) => {
-                    const activo = d.iso === fechaSeleccionada;
-                    return (
-                      <button
-                        key={d.iso}
-                        onClick={() => setFechaSeleccionada(d.iso)}
-                        className={`p-2.5 rounded-xl border text-center transition ${
-                          activo
-                            ? 'bg-indigo-600 text-white border-indigo-600 shadow'
-                            : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700'
-                        }`}
-                      >
-                        <div className="text-[11px] uppercase font-semibold opacity-80">{d.diaSemana}</div>
-                        <div className="text-lg font-extrabold">{d.diaNumero}</div>
-                        <div className="text-[10px] opacity-75">{d.cantidad} act.</div>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => navegarCalendario(-1)} className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800">
+                        <Icon name="chevron-left" className="w-4 h-4" />
                       </button>
-                    );
-                  })}
+                      <h3 className="font-extrabold text-base sm:text-lg min-w-[160px] text-center">
+                        {nombresMeses[fechaCursor.getMonth()]} {fechaCursor.getFullYear()}
+                      </h3>
+                      <button onClick={() => navegarCalendario(1)} className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800">
+                        <Icon name="chevron-right" className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => {
+                          const ahora = new Date();
+                          setFechaCursor(ahora);
+                          setDiaSeleccionado(formatDateISO(ahora));
+                        }}
+                        className="px-3 py-1.5 rounded-lg text-xs font-bold border border-slate-200 dark:border-slate-700"
+                      >
+                        Hoy
+                      </button>
+                      {['mes', 'semana'].map((m) => (
+                        <button
+                          key={m}
+                          onClick={() => setModoCalendario(m)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold capitalize ${
+                            modoCalendario === m ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-800'
+                          }`}
+                        >
+                          {m}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Cabecera de días */}
+                  <div className="grid grid-cols-7 gap-1 text-center text-xs font-bold text-slate-400 pb-1">
+                    {diasSemanaCorto.map((d) => <div key={d}>{d}</div>)}
+                  </div>
+
+                  {/* Cuadrícula de días */}
+                  <div className="grid grid-cols-7 gap-1.5">
+                    {(modoCalendario === 'mes' ? diasMesActual : diasSemanaActual).map((celda) => {
+                      const eventosDia = compromisos.filter((c) => c.fecha === celda.iso);
+                      const esSeleccionado = celda.iso === diaSeleccionado;
+                      const esHoy = celda.iso === hoyISO;
+
+                      return (
+                        <button
+                          key={celda.iso}
+                          onClick={() => setDiaSeleccionado(celda.iso)}
+                          className={`min-h-[68px] p-2 rounded-xl border text-left flex flex-col justify-between transition ${
+                            esSeleccionado
+                              ? 'border-indigo-600 bg-indigo-50/60 dark:bg-indigo-950/50 ring-2 ring-indigo-500'
+                              : celda.esMesActual
+                              ? 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                              : 'border-transparent opacity-40'
+                          }`}
+                        >
+                          <span className={`text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center ${esHoy ? 'bg-indigo-600 text-white' : ''}`}>
+                            {celda.fechaObj.getDate()}
+                          </span>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {eventosDia.slice(0, 4).map((ev) => {
+                              const amb = AMBITOS[ev.ambito] || AMBITOS['Personal'];
+                              return <span key={ev.id} className={`w-2 h-2 rounded-full ${amb.dotClass}`} />;
+                            })}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
-                <div className="space-y-2.5 pt-2">
-                  {compromisos.filter((c) => c.fecha === fechaSeleccionada).length === 0 ? (
-                    <div className="p-8 text-center text-slate-500 text-sm border border-dashed rounded-xl">
-                      Sin compromisos registrados para el {fechaSeleccionada}.
+                {/* Detalle del día seleccionado */}
+                <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-bold text-sm sm:text-base capitalize">{formatearFechaHumana(diaSeleccionado)}</h4>
+                      <p className="text-xs text-slate-500">{diaSeleccionado}</p>
                     </div>
-                  ) : (
-                    compromisos
-                      .filter((c) => c.fecha === fechaSeleccionada)
-                      .sort((a, b) => a.horaInicio.localeCompare(b.horaInicio))
-                      .map((item) => {
-                        const amb = AMBITOS[item.ambito] || AMBITOS.personal;
-                        return (
-                          <div key={item.id} className="p-3.5 rounded-xl border border-slate-200 flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-3">
-                              <span className="text-xs font-bold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-lg">
-                                {item.horaInicio}
-                              </span>
-                              <div>
-                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${amb.badgeBg}`}>
-                                  {amb.corto}
-                                </span>
-                                <h4 className="font-semibold text-sm text-slate-900 mt-0.5">{item.titulo}</h4>
-                              </div>
-                            </div>
-                            <button
-                              onClick={() => abrirEdicion(item)}
-                              className="text-xs font-semibold text-indigo-600 hover:underline"
-                            >
-                              Editar
-                            </button>
-                          </div>
-                        );
-                      })
-                  )}
+                    <button
+                      onClick={() => abrirModalNuevo('Arte y Video', diaSeleccionado)}
+                      className="px-3 py-1.5 rounded-xl bg-indigo-600 text-white text-xs font-bold"
+                    >
+                      + Agendar este día
+                    </button>
+                  </div>
+
+                  <div className="space-y-2.5">
+                    {compromisos.filter((c) => c.fecha === diaSeleccionado).length === 0 ? (
+                      <div className="p-8 text-center text-xs text-slate-500 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl">
+                        Sin compromisos para esta fecha.
+                      </div>
+                    ) : (
+                      compromisos
+                        .filter((c) => c.fecha === diaSeleccionado)
+                        .map((item) => <TarjetaCompromiso key={item.id} item={item} />)
+                    )}
+                  </div>
                 </div>
               </div>
             )}
 
             {/* VISTA 3: LISTA COMPLETA */}
             {vistaActiva === 'lista' && (
-              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
-                <h3 className="font-bold text-base text-slate-900">Todos tus Compromisos ({compromisosFiltrados.length})</h3>
-                <div className="divide-y divide-slate-100">
-                  {compromisosFiltrados.map((item) => {
-                    const amb = AMBITOS[item.ambito] || AMBITOS.personal;
-                    return (
-                      <div key={item.id} className="py-3 flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <input
-                            type="checkbox"
-                            checked={item.completado}
-                            onChange={() => alternarCompletado(item.id)}
-                            className="w-4 h-4 rounded text-indigo-600"
-                          />
-                          <div>
-                            <p className={`text-sm font-semibold ${item.completado ? 'line-through text-slate-400' : 'text-slate-900'}`}>
-                              {item.titulo}
-                            </p>
-                            <p className="text-xs text-slate-500">
-                              {amb.corto} · {item.subcategoria} · {item.fecha} ({item.horaInicio})
-                            </p>
-                          </div>
-                        </div>
-                        <button onClick={() => abrirEdicion(item)} className="text-xs text-indigo-600 font-semibold">
-                          Editar
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* VISTA 4: VOCABULARIO PERSONALIZADO DE VOZ */}
-            {vistaActiva === 'vocabulario' && (
-              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-5">
-                <div>
-                  <h3 className="font-bold text-base text-slate-900">Diccionario Personalizado de Voz (es-MX)</h3>
-                  <p className="text-xs text-slate-500">
-                    Cada vez que dictes por micrófono, el sistema reemplazará automáticamente estas frases por tus nombres propios o términos técnicos.
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
-                  <input
-                    type="text"
-                    placeholder="Si el micrófono escucha... (ej. vertice)"
-                    value={nuevoVocab.incorrecto}
-                    onChange={(e) => setNuevoVocab({ ...nuevoVocab, incorrecto: e.target.value })}
-                    className="px-3 py-2 rounded-lg border border-slate-300 text-xs"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Cambiar por... (ej. Vértice ENIEP 2026)"
-                    value={nuevoVocab.correcto}
-                    onChange={(e) => setNuevoVocab({ ...nuevoVocab, correcto: e.target.value })}
-                    className="px-3 py-2 rounded-lg border border-slate-300 text-xs"
-                  />
-                  <button
-                    onClick={() => {
-                      if (!nuevoVocab.incorrecto.trim() || !nuevoVocab.correcto.trim()) return;
-                      setVocabulario([
-                        ...vocabulario,
-                        { id: 'v-' + Date.now(), ...nuevoVocab }
-                      ]);
-                      setNuevoVocab({ incorrecto: '', correcto: '', categoria: 'General' });
-                    }}
-                    className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs rounded-lg px-4 py-2 transition"
-                  >
-                    + Agregar Término
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                  {vocabulario.map((v) => (
-                    <div key={v.id} className="p-3 rounded-xl border border-slate-200 flex items-center justify-between text-xs bg-white">
-                      <div>
-                        <span className="text-slate-400 line-through mr-1.5">{v.incorrecto}</span>
-                        <span className="font-bold text-slate-900">→ {v.correcto}</span>
-                      </div>
+              <div className="space-y-4">
+                <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
+                  <h3 className="font-bold text-base">Todos los Compromisos ({compromisosFiltrados.length})</h3>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {['Todos', 'Arte y Video', 'Preparatoria Lázaro Cárdenas', 'Personal'].map((amb) => (
                       <button
-                        onClick={() => setVocabulario(vocabulario.filter((item) => item.id !== v.id))}
-                        className="text-slate-400 hover:text-rose-600"
+                        key={amb}
+                        onClick={() => setFiltroAmbito(amb)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                          filtroAmbito === amb ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                        }`}
                       >
-                        <Icon name="x" className="w-4 h-4" />
+                        {amb}
                       </button>
-                    </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {compromisosFiltrados.map((item) => (
+                    <TarjetaCompromiso key={item.id} item={item} />
                   ))}
                 </div>
               </div>
             )}
           </main>
 
-          {/* MODAL 1: CREAR O EDITAR COMPROMISO */}
+          {/* MODAL CREAR / EDITAR COMPROMISO */}
           {modalAbierto && (
-            <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
-              <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                  <h3 className="font-bold text-base text-slate-900">
-                    {editandoId ? 'Editar Compromiso' : 'Nuevo Compromiso'}
+            <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+                <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+                  <h3 className="font-bold text-base">
+                    {compromisoEditando ? 'Editar Compromiso' : 'Nuevo Compromiso'}
                   </h3>
                   <button onClick={() => setModalAbierto(false)} className="text-slate-400 hover:text-slate-600">
                     <Icon name="x" className="w-5 h-5" />
@@ -1087,124 +1315,132 @@
                 </div>
 
                 <form onSubmit={guardarCompromiso} className="space-y-4">
-                  {/* Selección de los 3 Ámbitos */}
                   <div>
                     <label className="block text-xs font-bold uppercase text-slate-500 mb-1.5">Ámbito</label>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                       {Object.values(AMBITOS).map((amb) => (
                         <button
                           type="button"
                           key={amb.id}
                           onClick={() =>
-                            setForm({
-                              ...form,
+                            setFormData({
+                              ...formData,
                               ambito: amb.id,
                               subcategoria: amb.subcategorias[0]
                             })
                           }
-                          className={`py-2 px-2 rounded-xl text-xs font-bold border transition ${
-                            form.ambito === amb.id
-                              ? amb.btnActive
-                              : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                          className={`py-2 px-2.5 rounded-xl text-xs font-bold border transition ${
+                            formData.ambito === amb.id
+                              ? amb.btnClass
+                              : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'
                           }`}
                         >
-                          {amb.corto}
+                          {amb.nombre}
                         </button>
                       ))}
                     </div>
                   </div>
 
-                  {/* Subcategoría */}
-                  <div>
-                    <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Subcategoría</label>
-                    <select
-                      value={form.subcategoria}
-                      onChange={(e) => setForm({ ...form, subcategoria: e.target.value })}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm bg-white"
-                    >
-                      {AMBITOS[form.ambito].subcategorias.map((sub) => (
-                        <option key={sub} value={sub}>{sub}</option>
-                      ))}
-                    </select>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Subcategoría</label>
+                      <select
+                        value={formData.subcategoria}
+                        onChange={(e) => setFormData({ ...formData, subcategoria: e.target.value })}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs sm:text-sm"
+                      >
+                        {AMBITOS[formData.ambito].subcategorias.map((sub) => (
+                          <option key={sub} value={sub}>{sub}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Prioridad</label>
+                      <select
+                        value={formData.prioridad}
+                        onChange={(e) => setFormData({ ...formData, prioridad: e.target.value })}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs sm:text-sm"
+                      >
+                        {Object.keys(PRIORIDADES).map((p) => (
+                          <option key={p} value={p}>{p}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
 
-                  {/* Título con Micrófono Integrado */}
                   <div>
                     <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Título del Compromiso</label>
                     <div className="flex gap-2">
                       <input
                         type="text"
                         required
-                        value={form.titulo}
-                        onChange={(e) => setForm({ ...form, titulo: e.target.value })}
-                        placeholder="Ej. Sesión de retrato en estudio / Clase Taller de Medios"
-                        className="flex-1 px-3 py-2 rounded-xl border border-slate-300 text-sm"
+                        value={formData.titulo}
+                        onChange={(e) => setFormData({ ...formData, titulo: e.target.value })}
+                        placeholder="Ej. Sesión en estudio / Radio Fuerza Puma 95.1 FM"
+                        className="flex-1 px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
                       />
                       <button
                         type="button"
-                        onClick={() => iniciarDictado('titulo')}
+                        onClick={() => alternarReconocimientoVoz('titulo')}
                         className={`px-3 rounded-xl border flex items-center justify-center ${
-                          escuchando && campoEscuchando === 'titulo'
+                          escuchandoVoz && campoDictadoActivo === 'titulo'
                             ? 'bg-rose-600 text-white border-rose-600 mic-pulse'
-                            : 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200'
+                            : 'bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700'
                         }`}
-                        title="Dictar título"
+                        title="Dictar título por voz"
                       >
                         <Icon name="mic" className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
 
-                  {/* Fecha y Horas */}
                   <div className="grid grid-cols-3 gap-2.5">
                     <div>
                       <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Fecha</label>
                       <input
                         type="date"
-                        value={form.fecha}
-                        onChange={(e) => setForm({ ...form, fecha: e.target.value })}
-                        className="w-full px-2.5 py-2 rounded-xl border border-slate-300 text-xs sm:text-sm"
+                        value={formData.fecha}
+                        onChange={(e) => setFormData({ ...formData, fecha: e.target.value })}
+                        className="w-full px-2.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs sm:text-sm"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Inicio</label>
+                      <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Hora Inicio</label>
                       <input
                         type="time"
-                        value={form.horaInicio}
-                        onChange={(e) => setForm({ ...form, horaInicio: e.target.value })}
-                        className="w-full px-2.5 py-2 rounded-xl border border-slate-300 text-xs sm:text-sm"
+                        value={formData.horaInicio}
+                        onChange={(e) => setFormData({ ...formData, horaInicio: e.target.value })}
+                        className="w-full px-2.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs sm:text-sm"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Fin</label>
+                      <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Hora Fin</label>
                       <input
                         type="time"
-                        value={form.horaFin}
-                        onChange={(e) => setForm({ ...form, horaFin: e.target.value })}
-                        className="w-full px-2.5 py-2 rounded-xl border border-slate-300 text-xs sm:text-sm"
+                        value={formData.horaFin}
+                        onChange={(e) => setFormData({ ...formData, horaFin: e.target.value })}
+                        className="w-full px-2.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs sm:text-sm"
                       />
                     </div>
                   </div>
 
-                  {/* Notas con Micrófono */}
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <label className="text-xs font-bold uppercase text-slate-500">Notas o Detalles</label>
+                      <label className="text-xs font-bold uppercase text-slate-500">Notas</label>
                       <button
                         type="button"
-                        onClick={() => iniciarDictado('notas')}
-                        className="text-xs text-rose-600 font-semibold flex items-center gap-1 hover:underline"
+                        onClick={() => alternarReconocimientoVoz('notas')}
+                        className="text-xs text-rose-500 font-bold flex items-center gap-1"
                       >
                         <Icon name="mic" className="w-3.5 h-3.5" />
-                        <span>{escuchando && campoEscuchando === 'notas' ? 'Escuchando...' : 'Dictar nota'}</span>
+                        <span>{escuchandoVoz && campoDictadoActivo === 'notas' ? 'Escuchando...' : 'Dictar nota'}</span>
                       </button>
                     </div>
                     <textarea
                       rows="2"
-                      value={form.notas}
-                      onChange={(e) => setForm({ ...form, notas: e.target.value })}
-                      placeholder="Detalles adicionales, equipo fotográfico, salón o enlaces..."
-                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
+                      value={formData.notas}
+                      onChange={(e) => setFormData({ ...formData, notas: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
                     />
                   </div>
 
@@ -1212,7 +1448,7 @@
                     <button
                       type="button"
                       onClick={() => setModalAbierto(false)}
-                      className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-semibold text-slate-700"
+                      className="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-bold"
                     >
                       Cancelar
                     </button>
@@ -1228,153 +1464,212 @@
             </div>
           )}
 
-          {/* MODAL 2: ASISTENTE DE DICTADO POR VOZ INTELIGENTE */}
+          {/* MODAL DICTADO POR VOZ INTELIGENTE + VOCABULARIO */}
           {modalVozAbierto && (
-            <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
-              <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-bold text-base text-slate-900 flex items-center gap-2">
-                    <Icon name="mic" className="w-5 h-5 text-rose-600" />
-                    <span>Dictado Inteligente de Compromisos</span>
-                  </h3>
+            <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-xs flex items-center justify-center p-4">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+                <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setTabModalVoz('dictar')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold ${
+                        tabModalVoz === 'dictar' ? 'bg-rose-600 text-white' : 'bg-slate-100 dark:bg-slate-800'
+                      }`}
+                    >
+                      Asistente de Voz
+                    </button>
+                    <button
+                      onClick={() => setTabModalVoz('vocabulario')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold ${
+                        tabModalVoz === 'vocabulario' ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-800'
+                      }`}
+                    >
+                      Diccionario Fonético ({vocabulario.length})
+                    </button>
+                  </div>
                   <button onClick={() => setModalVozAbierto(false)} className="text-slate-400 hover:text-slate-600">
                     <Icon name="x" className="w-5 h-5" />
                   </button>
                 </div>
 
-                <div className="flex flex-col items-center justify-center py-4 space-y-3 bg-slate-50 rounded-2xl border border-slate-200">
-                  <button
-                    type="button"
-                    onClick={() => iniciarDictado('asistente')}
-                    className={`w-16 h-16 rounded-full flex items-center justify-center transition shadow-lg ${
-                      escuchando
-                        ? 'bg-rose-600 text-white mic-pulse'
-                        : 'bg-slate-900 hover:bg-indigo-600 text-white'
-                    }`}
-                  >
-                    <Icon name="mic" className="w-7 h-7" />
-                  </button>
-                  <p className="text-xs font-semibold text-slate-700">
-                    {escuchando ? 'Escuchando en Español (es-MX)... Habla ahora' : 'Toca el micrófono y dicta tu compromiso'}
-                  </p>
-                  {textoDictado && (
-                    <p className="text-xs text-indigo-800 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-200 max-w-md text-center">
-                      "{textoDictado}"
-                    </p>
-                  )}
-                  {errorVoz && (
-                    <p className="text-xs text-rose-700 bg-rose-50 px-3 py-2 rounded-lg border border-rose-200 text-center">
-                      {errorVoz}
-                    </p>
-                  )}
-                </div>
+                {tabModalVoz === 'dictar' ? (
+                  <div className="space-y-4">
+                    <div className="flex flex-col items-center justify-center py-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-2.5">
+                      <button
+                        type="button"
+                        onClick={() => alternarReconocimientoVoz('inteligente')}
+                        className={`w-16 h-16 rounded-full flex items-center justify-center text-white shadow-lg transition ${
+                          escuchandoVoz ? 'bg-rose-600 mic-pulse' : 'bg-indigo-600 hover:bg-indigo-500'
+                        }`}
+                      >
+                        <Icon name="mic" className="w-7 h-7" />
+                      </button>
+                      <p className="text-xs font-bold">
+                        {escuchandoVoz ? 'Escuchando en Español (es-MX)... Habla ahora' : 'Toca el micrófono para dictar o escribe abajo'}
+                      </p>
+                    </div>
 
-                {/* Vista previa editable de lo detectado */}
-                <div className="space-y-2.5 text-xs bg-slate-50 p-3.5 rounded-xl border border-slate-200">
-                  <div className="font-bold text-slate-700 uppercase">Vista Previa Detectada (Editable):</div>
-                  <input
-                    type="text"
-                    value={form.titulo}
-                    onChange={(e) => setForm({ ...form, titulo: e.target.value })}
-                    placeholder="O escribe aquí tu frase y se clasificará sola..."
-                    onBlur={(e) => {
-                      if (e.target.value.trim()) setForm(interpretarFraseNatural(e.target.value));
-                    }}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white font-medium"
-                  />
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <span className="text-slate-500 block">Ámbito detectado:</span>
-                      <span className="font-bold text-slate-900">{AMBITOS[form.ambito]?.nombre}</span>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={textoDictado}
+                        onChange={(e) => {
+                          setTextoDictado(e.target.value);
+                          setPropuestaVoz(analizarTextoLocalmente(e.target.value));
+                        }}
+                        placeholder="Ej. Mañana a las 4 pm sesión en Arte y Video prioridad alta..."
+                        className="flex-1 px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs sm:text-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => procesarDictado(textoDictado)}
+                        className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold"
+                      >
+                        Analizar
+                      </button>
                     </div>
-                    <div>
-                      <span className="text-slate-500 block">Subcategoría:</span>
-                      <span className="font-bold text-slate-900">{form.subcategoria}</span>
+
+                    {/* Ejemplos rápidos */}
+                    <div className="space-y-1.5">
+                      <p className="text-[11px] font-bold uppercase text-slate-400">Frases de prueba (clic para simular):</p>
+                      <div className="grid grid-cols-1 gap-1.5">
+                        {EJEMPLOS_DICTADO.map((ej, i) => (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => procesarDictado(ej)}
+                            className="text-left text-xs p-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-slate-700 dark:text-slate-300 transition"
+                          >
+                            "{ej}"
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                    <div>
-                      <span className="text-slate-500 block">Fecha:</span>
-                      <span className="font-bold text-slate-900">{form.fecha}</span>
+
+                    {/* Tarjeta de propuesta detectada */}
+                    {propuestaVoz && (
+                      <div className="p-4 rounded-xl border border-indigo-300 dark:border-indigo-800 bg-indigo-50/40 dark:bg-indigo-950/30 space-y-2 text-xs">
+                        <div className="font-extrabold text-indigo-600 dark:text-indigo-400 uppercase">Compromiso Detectado:</div>
+                        <div className="font-bold text-sm">{propuestaVoz.titulo}</div>
+                        <div className="grid grid-cols-2 gap-2 text-slate-600 dark:text-slate-300">
+                          <div><strong>Ámbito:</strong> {propuestaVoz.ambito}</div>
+                          <div><strong>Subcategoría:</strong> {propuestaVoz.subcategoria}</div>
+                          <div><strong>Fecha:</strong> {propuestaVoz.fecha}</div>
+                          <div><strong>Horario:</strong> {propuestaVoz.horaInicio} - {propuestaVoz.horaFin}</div>
+                        </div>
+                        <div className="pt-2 flex justify-end">
+                          <button
+                            type="button"
+                            onClick={confirmarPropuestaVoz}
+                            className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow"
+                          >
+                            Confirmar y Guardar en Agenda
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <p className="text-xs text-slate-500">
+                      Agrega palabras clave para que el dictado corrija automáticamente nombres propios o técnicos:
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <input
+                        type="text"
+                        placeholder="Término correcto (ej. Vértice)"
+                        value={nuevoTermino.termino}
+                        onChange={(e) => setNuevoTermino({ ...nuevoTermino, termino: e.target.value })}
+                        className="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Variantes (ej. vertice, bertice)"
+                        value={nuevoTermino.variantes}
+                        onChange={(e) => setNuevoTermino({ ...nuevoTermino, variantes: e.target.value })}
+                        className="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!nuevoTermino.termino.trim()) return;
+                          setVocabulario([
+                            ...vocabulario,
+                            {
+                              id: 'voc-' + Date.now(),
+                              termino: nuevoTermino.termino.trim(),
+                              variantes: nuevoTermino.variantes.trim() || nuevoTermino.termino.toLowerCase(),
+                              categoria: 'Personalizado'
+                            }
+                          ]);
+                          setNuevoTermino({ termino: '', variantes: '', categoria: 'Arte y Video' });
+                        }}
+                        className="px-3 py-2 rounded-lg bg-indigo-600 text-white font-bold text-xs"
+                      >
+                        + Añadir
+                      </button>
                     </div>
-                    <div>
-                      <span className="text-slate-500 block">Horario:</span>
-                      <span className="font-bold text-slate-900">{form.horaInicio} - {form.horaFin}</span>
+                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                      {vocabulario.map((v) => (
+                        <div key={v.id} className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs">
+                          <div>
+                            <span className="font-bold">{v.termino}</span>
+                            <span className="text-slate-400 ml-2">({v.variantes})</span>
+                          </div>
+                          <button
+                            onClick={() => setVocabulario(vocabulario.filter((i) => i.id !== v.id))}
+                            className="text-slate-400 hover:text-rose-500"
+                          >
+                            <Icon name="trash-2" className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                </div>
-
-                <div className="flex justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setModalVozAbierto(false)}
-                    className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-semibold text-slate-700"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={guardarCompromiso}
-                    className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow"
-                  >
-                    Confirmar y Agendar
-                  </button>
-                </div>
+                )}
               </div>
             </div>
           )}
 
-          {/* MODAL 3: CONFIGURACIÓN NUBE (FIREBASE) Y RESPALDOS JSON */}
+          {/* MODAL CONFIGURACIÓN NUBE Y RESPALDO */}
           {modalNubeAbierto && (
-            <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
-              <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
-                <div className="flex items-center justify-between border-b pb-3">
-                  <h3 className="font-bold text-base text-slate-900">Sincronización Multi-Dispositivo y Respaldos</h3>
+            <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-xs flex items-center justify-center p-4">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+                  <h3 className="font-bold text-base">Respaldo y Sincronización en la Nube</h3>
                   <button onClick={() => setModalNubeAbierto(false)} className="text-slate-400 hover:text-slate-600">
                     <Icon name="x" className="w-5 h-5" />
                   </button>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="block text-xs font-bold uppercase text-slate-600">
-                    1. Respaldo rápido en archivo (Sin configurar servidores)
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      onClick={exportarRespaldoJSON}
-                      className="px-3.5 py-2 rounded-xl bg-slate-900 text-white text-xs font-semibold flex items-center gap-1.5"
-                    >
-                      <Icon name="download" className="w-4 h-4" />
-                      <span>Descargar Respaldo (.json)</span>
+                  <p className="text-xs font-bold uppercase text-slate-400">1. Respaldo en Archivo Local (.json)</p>
+                  <div className="flex gap-2">
+                    <button onClick={exportarJSON} className="px-3.5 py-2 rounded-xl bg-slate-800 text-white text-xs font-bold">
+                      Descargar Respaldo
                     </button>
-                    <label className="px-3.5 py-2 rounded-xl border border-slate-300 text-slate-700 text-xs font-semibold cursor-pointer hover:bg-slate-50 flex items-center gap-1.5">
-                      <Icon name="upload" className="w-4 h-4" />
-                      <span>Cargar Respaldo (.json)</span>
-                      <input type="file" accept=".json" onChange={importarRespaldoJSON} className="hidden" />
+                    <label className="px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-bold cursor-pointer">
+                      Restaurar Archivo
+                      <input type="file" accept=".json" onChange={importarJSON} className="hidden" />
                     </label>
                   </div>
                 </div>
 
-                <div className="space-y-2 pt-2 border-t border-slate-200">
-                  <label className="block text-xs font-bold uppercase text-slate-600">
-                    2. Sincronización en tiempo real con Firebase (Opcional)
-                  </label>
-                  <p className="text-xs text-slate-500">
-                    Pega aquí tu bloque <code>firebaseConfig</code> de tu consola de Firebase para sincronizar automáticamente entre tu iPad, celular y PC:
-                  </p>
+                <div className="space-y-2 pt-3 border-t border-slate-200 dark:border-slate-800">
+                  <p className="text-xs font-bold uppercase text-slate-400">2. Firebase Realtime Config (Opcional)</p>
                   <textarea
                     rows="4"
                     value={firebaseConfigStr}
                     onChange={(e) => setFirebaseConfigStr(e.target.value)}
                     placeholder='{"apiKey": "...", "authDomain": "...", "projectId": "..."}'
-                    className="w-full p-2.5 rounded-xl border border-slate-300 text-xs font-mono"
+                    className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-mono"
                   />
-                  {mensajeNube && (
-                    <p className="text-xs font-medium text-emerald-700 bg-emerald-50 p-2 rounded-lg">{mensajeNube}</p>
-                  )}
-                  <div className="flex justify-end gap-2">
+                  <div className="flex justify-end">
                     <button
                       onClick={() => {
-                        localStorage.setItem('agenda_javier_fb_config', firebaseConfigStr);
+                        localStorage.setItem('agenda_javier_fb_v2', firebaseConfigStr);
                         setModalNubeAbierto(false);
+                        mostrarMensaje('Configuración guardada');
                       }}
                       className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold"
                     >
