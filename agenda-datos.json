@@ -1,6 +1,20 @@
 {
-  "actualizadoEn": 1794601992773,
-  "compromisos": [],
+  "actualizadoEn": 1794602058108,
+  "compromisos": [
+    {
+      "titulo": "TERMINAR PLEANEACIONES 3ER PARCIAL",
+      "ambito": "Preparatoria Lázaro Cárdenas",
+      "subcategoria": "Reunión Académica",
+      "fecha": "2026-11-13",
+      "horaInicio": "15:00",
+      "horaFin": "17:30",
+      "prioridad": "Media",
+      "notas": "",
+      "completado": false,
+      "id": "comp-1794602057152",
+      "actualizadoEn": 1794602057152
+    }
+  ],
   "vocabulario": [
     {
       "id": "voc-1",
