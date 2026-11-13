@@ -1,0 +1,48 @@
+{
+  "actualizadoEn": 1794601992773,
+  "compromisos": [],
+  "vocabulario": [
+    {
+      "id": "voc-1",
+      "termino": "Cananea",
+      "variantes": "cananea, kananea, cana nea",
+      "categoria": "General"
+    },
+    {
+      "id": "voc-2",
+      "termino": "Fuerza Puma",
+      "variantes": "fuerza puma, fuersa puma, pumas prepa",
+      "categoria": "Preparatoria Lázaro Cárdenas"
+    },
+    {
+      "id": "voc-3",
+      "termino": "95.1 FM",
+      "variantes": "95.1, noventa y cinco punto uno, 95 1 fm, radio 95.1",
+      "categoria": "Preparatoria Lázaro Cárdenas"
+    },
+    {
+      "id": "voc-4",
+      "termino": "Taller de Medios",
+      "variantes": "taller de medios, taller medios",
+      "categoria": "Preparatoria Lázaro Cárdenas"
+    },
+    {
+      "id": "voc-5",
+      "termino": "Fine Art",
+      "variantes": "fine art, fain art, impresión fine art",
+      "categoria": "Arte y Video"
+    },
+    {
+      "id": "voc-6",
+      "termino": "Vértice",
+      "variantes": "vertice, vértice, concurso vértice",
+      "categoria": "Preparatoria Lázaro Cárdenas"
+    },
+    {
+      "id": "voc-7",
+      "termino": "Lázaro Cárdenas",
+      "variantes": "lazaro cardenas, lázaro cárdenas, prepa lazaro",
+      "categoria": "Preparatoria Lázaro Cárdenas"
+    }
+  ]
+}
