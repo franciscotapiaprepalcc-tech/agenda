@@ -60,7 +60,7 @@
     const STORE_NAME = 'estado_agenda';
 
     const abrirBaseDatosLocal = () => {
-      return new Promise((resolve, reject) => {
+      return new Promise((resolve) => {
         if (!window.indexedDB) {
           resolve(null);
           return;
@@ -163,7 +163,7 @@
       'Preparatoria Lázaro Cárdenas': {
         id: 'Preparatoria Lázaro Cárdenas',
         nombre: 'Preparatoria Lázaro Cárdenas',
-        descripcion: 'Docencia, Taller de Medios, Radio 95.1 FM y proyectos educativos',
+        descripcion: 'Docencia, Taller de Medios, Radio 95.1 FM, proyectos educativos y gestión administrativa',
         icon: 'graduation-cap',
         bgLight: 'bg-indigo-50 dark:bg-indigo-950/30',
         borderLight: 'border-indigo-200 dark:border-indigo-800/60',
@@ -173,6 +173,7 @@
         dotClass: 'bg-indigo-500',
         subcategorias: [
           'Clase Frente a Grupo',
+          'Administrativo',
           'Taller de Medios',
           'Radio Escolar 95.1 FM',
           'Proyecto Educativo / Concurso',
@@ -220,7 +221,7 @@
 
     const EJEMPLOS_DICTADO = [
       'Agendar mañana a las 4 de la tarde sesión fotográfica en Arte y Video con prioridad alta',
-      'El lunes a las 10 am junta de Radio Escolar 95.1 FM Fuerza Puma en la Preparatoria Lázaro Cárdenas',
+      'El lunes a las 10 am trámite administrativo y entrega de oficios en la Preparatoria Lázaro Cárdenas',
       'Pasado mañana a las 6 de la tarde impresión Fine Art para exposición Vértice en Cananea',
       'Hoy a las 8 de la noche cena familiar y descanso en ámbito Personal con prioridad media'
     ];
@@ -450,7 +451,6 @@
           };
 
           try {
-            // Primero consultamos si ya existe agenda-datos.json en el repositorio
             const getRes = await fetch(`${urlApi}?ref=${ghBranch || 'main'}&_t=${Date.now()}`, { headers });
             let shaActual = null;
             let datosRemotos = null;
@@ -464,7 +464,6 @@
             }
 
             if (modo === 'pull' && datosRemotos) {
-              // Descargar desde GitHub si los datos remotos existen
               if (Array.isArray(datosRemotos.compromisos)) {
                 setCompromisos(datosRemotos.compromisos);
                 await guardarEnBDLocal('agenda_javier_compromisos_v3', datosRemotos.compromisos);
@@ -480,7 +479,6 @@
               return;
             }
 
-            // Si es 'push' o si el archivo aún no existía en GitHub, subimos la base de datos local
             const paquete = {
               actualizadoEn: Date.now(),
               compromisos: datosCompromisos,
@@ -620,7 +618,8 @@
           lower.includes('prepa') || lower.includes('lázaro cárdenas') || lower.includes('lazaro cardenas') ||
           lower.includes('radio') || lower.includes('95.1') || lower.includes('taller de medios') ||
           lower.includes('fuerza puma') || lower.includes('clase') || lower.includes('alumno') ||
-          lower.includes('concurso') || lower.includes('vértice') || lower.includes('vertice')
+          lower.includes('concurso') || lower.includes('vértice') || lower.includes('vertice') ||
+          lower.includes('administrativo') || lower.includes('oficio') || lower.includes('dirección')
         ) {
           ambito = 'Preparatoria Lázaro Cárdenas';
         } else if (
@@ -638,12 +637,29 @@
           else if (lower.includes('cliente') || lower.includes('cotización') || lower.includes('entrega')) subcategoria = 'Atención a Clientes';
           else subcategoria = 'Sesión Fotográfica';
         } else if (ambito === 'Preparatoria Lázaro Cárdenas') {
-          if (lower.includes('95.1') || lower.includes('radio') || lower.includes('cabina')) subcategoria = 'Radio Escolar 95.1 FM';
-          else if (lower.includes('taller de medios') || lower.includes('medios')) subcategoria = 'Taller de Medios';
-          else if (lower.includes('proyecto') || lower.includes('concurso') || lower.includes('vértice') || lower.includes('fuerza puma')) subcategoria = 'Proyecto Educativo / Concurso';
-          else if (lower.includes('califica') || lower.includes('revisión')) subcategoria = 'Revisión y Calificaciones';
-          else if (lower.includes('junta') || lower.includes('reunión')) subcategoria = 'Reunión Académica';
-          else subcategoria = 'Clase Frente a Grupo';
+          if (
+            lower.includes('administrativo') ||
+            lower.includes('oficio') ||
+            lower.includes('dirección') ||
+            lower.includes('constancia') ||
+            lower.includes('reporte') ||
+            lower.includes('planeación') ||
+            lower.includes('control escolar')
+          ) {
+            subcategoria = 'Administrativo';
+          } else if (lower.includes('95.1') || lower.includes('radio') || lower.includes('cabina')) {
+            subcategoria = 'Radio Escolar 95.1 FM';
+          } else if (lower.includes('taller de medios') || lower.includes('medios')) {
+            subcategoria = 'Taller de Medios';
+          } else if (lower.includes('proyecto') || lower.includes('concurso') || lower.includes('vértice') || lower.includes('fuerza puma')) {
+            subcategoria = 'Proyecto Educativo / Concurso';
+          } else if (lower.includes('califica') || lower.includes('revisión')) {
+            subcategoria = 'Revisión y Calificaciones';
+          } else if (lower.includes('junta') || lower.includes('reunión')) {
+            subcategoria = 'Reunión Académica';
+          } else {
+            subcategoria = 'Clase Frente a Grupo';
+          }
         } else {
           if (lower.includes('salud') || lower.includes('médico') || lower.includes('ejercicio')) subcategoria = 'Salud y Ejercicio';
           else if (lower.includes('trámite') || lower.includes('pago') || lower.includes('banco')) subcategoria = 'Trámites y Finanzas';
@@ -1268,7 +1284,7 @@
                       Agenda por voz y sincroniza con tu repositorio de GitHub sin Firebase
                     </h3>
                     <p className="text-xs sm:text-sm text-slate-300">
-                      Reconoce: <strong>Cananea, Fuerza Puma, 95.1 FM, Taller de Medios, Fine Art, Vértice y Lázaro Cárdenas</strong>.
+                      Reconoce: <strong>Cananea, Fuerza Puma, 95.1 FM, Taller de Medios, Administrativo, Fine Art, Vértice y Lázaro Cárdenas</strong>.
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 shrink-0">
@@ -1341,7 +1357,7 @@
                           type="text"
                           value={busqueda}
                           onChange={(e) => setBusqueda(e.target.value)}
-                          placeholder="Buscar sesión, Fuerza Puma, Fine Art, Vértice..."
+                          placeholder="Buscar sesión, Administrativo, Fuerza Puma, Fine Art, Vértice..."
                           className="w-full text-xs sm:text-sm bg-transparent focus:outline-none"
                         />
                       </div>
@@ -1584,7 +1600,7 @@
                         required
                         value={formData.titulo}
                         onChange={(e) => setFormData({ ...formData, titulo: e.target.value })}
-                        placeholder="Ej. Sesión en estudio / Radio Fuerza Puma 95.1 FM"
+                        placeholder="Ej. Entrega de reporte administrativo / Radio Fuerza Puma 95.1 FM"
                         className="flex-1 px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
                       />
                       <button
@@ -1724,7 +1740,7 @@
                           setTextoDictado(e.target.value);
                           setPropuestaVoz(analizarTextoLocalmente(e.target.value));
                         }}
-                        placeholder="Ej. Mañana a las 4 pm sesión en Arte y Video prioridad alta..."
+                        placeholder="Ej. Mañana a las 10 am oficio administrativo en la Prepa..."
                         className="flex-1 px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs sm:text-sm"
                       />
                       <button
