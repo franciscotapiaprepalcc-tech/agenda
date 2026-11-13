@@ -324,12 +324,13 @@
         return Number(localStorage.getItem('agenda_javier_last_mod_v4') || 0);
       });
 
-      // Referencias para sincronización automática cada minuto sin cierres obsoletos
+      // Referencias estables para el temporizador de 60 segundos (evita llamadas cada segundo)
       const compromisosRef = useRef(compromisos);
       const vocabularioRef = useRef(vocabulario);
       const ultimaModRef = useRef(ultimaModificacionLocal);
       const syncEnCursoRef = useRef(false);
       const esperandoPrimerTokenRef = useRef(false);
+      const ultimoIntentoSyncRef = useRef(0);
 
       useEffect(() => { compromisosRef.current = compromisos; }, [compromisos]);
       useEffect(() => { vocabularioRef.current = vocabulario; }, [vocabulario]);
@@ -364,20 +365,20 @@
         };
       });
 
-      const [estadoSync, setEstadoSync] = useState('local'); // 'local' | 'sincronizando' | 'conectado' | 'error'
-      const [mensajeSync, setMensajeSync] = useState('Guardado en Base de Datos Local (IndexedDB)');
-      const [segundosParaSync, setSegundosParaSync] = useState(60);
-      const [modalSyncAbierto, setModalSyncAbierto] = useState(false);
-      const [esPrimeraConfiguracion, setEsPrimeraConfiguracion] = useState(false);
-      const [tabModalSync, setTabModalSync] = useState('github');
-
-      // Guardar syncConfig automáticamente en localStorage e IndexedDB cada vez que se edita el token
+      const syncConfigRef = useRef(syncConfig);
       useEffect(() => {
+        syncConfigRef.current = syncConfig;
         try {
           localStorage.setItem('agenda_javier_sync_cfg_v4', JSON.stringify(syncConfig));
           guardarEnBDLocal('agenda_javier_sync_cfg_v4', syncConfig);
         } catch (e) {}
       }, [syncConfig]);
+
+      const [estadoSync, setEstadoSync] = useState('local'); // 'local' | 'sincronizando' | 'conectado' | 'error'
+      const [mensajeSync, setMensajeSync] = useState('Guardado en Base de Datos Local (IndexedDB)');
+      const [modalSyncAbierto, setModalSyncAbierto] = useState(false);
+      const [esPrimeraConfiguracion, setEsPrimeraConfiguracion] = useState(false);
+      const [tabModalSync, setTabModalSync] = useState('github');
 
       // Filtros y Búsqueda
       const [filtroAmbito, setFiltroAmbito] = useState('Todos');
@@ -431,22 +432,28 @@
 
           if (compGuardados && Array.isArray(compGuardados)) {
             setCompromisos(compGuardados);
+            compromisosRef.current = compGuardados;
           } else {
             const iniciales = generarCompromisosIniciales();
             setCompromisos(iniciales);
+            compromisosRef.current = iniciales;
             await guardarEnBDLocal('agenda_javier_compromisos_v4', iniciales);
           }
 
           if (vocabGuardado && Array.isArray(vocabGuardado)) {
             setVocabulario(vocabGuardado);
+            vocabularioRef.current = vocabGuardado;
           } else {
             setVocabulario(VOCABULARIO_INICIAL);
+            vocabularioRef.current = VOCABULARIO_INICIAL;
             await guardarEnBDLocal('agenda_javier_vocab_v4', VOCABULARIO_INICIAL);
           }
 
           let tokenDetectado = syncConfig.ghToken || (cfgGuardadaIDB && cfgGuardadaIDB.ghToken) || '';
           if (cfgGuardadaIDB && cfgGuardadaIDB.ghToken && !syncConfig.ghToken) {
-            setSyncConfig((prev) => ({ ...prev, ...cfgGuardadaIDB, autoSync: true }));
+            const fusion = { ...syncConfig, ...cfgGuardadaIDB, autoSync: true };
+            setSyncConfig(fusion);
+            syncConfigRef.current = fusion;
           }
 
           // Revisar si la URL trae configuración de emparejamiento por QR (#pair=...)
@@ -458,22 +465,24 @@
               if (decodificado.syncConfig) {
                 const cfgQR = { ...decodificado.syncConfig, autoSync: true };
                 setSyncConfig(cfgQR);
+                syncConfigRef.current = cfgQR;
                 localStorage.setItem('agenda_javier_sync_cfg_v4', JSON.stringify(cfgQR));
                 await guardarEnBDLocal('agenda_javier_sync_cfg_v4', cfgQR);
                 localStorage.setItem('agenda_javier_setup_v4', 'true');
                 tokenDetectado = cfgQR.ghToken || 'qr';
                 vinculadoPorQR = true;
-                mostrarMensaje('Dispositivo vinculado por QR con sincronización cada minuto');
+                mostrarMensaje('Dispositivo vinculado por QR con sincronización cada 60 segundos');
               }
               if (Array.isArray(decodificado.compromisos)) {
                 setCompromisos(decodificado.compromisos);
+                compromisosRef.current = decodificado.compromisos;
                 await guardarEnBDLocal('agenda_javier_compromisos_v4', decodificado.compromisos);
               }
               window.history.replaceState(null, '', window.location.pathname);
             } catch (e) {}
           }
 
-          // Si es una computadora/dispositivo nuevo sin token cargado previamente, pedir el token únicamente esta primera vez
+          // Si es una computadora nueva sin token, abrir el cuadro de token solo esta primera vez
           const yaVioSetupEnEsteEquipo = localStorage.getItem('agenda_javier_setup_v4');
           if (!tokenDetectado.trim() && !vinculadoPorQR && !yaVioSetupEnEsteEquipo) {
             setEsPrimeraConfiguracion(true);
@@ -500,194 +509,187 @@
       }, [vocabulario, bdLista]);
 
       // ============================================================================
-      // MOTOR DE SINCRONIZACIÓN AUTOMÁTICA (AL INTRODUCIR TOKEN Y CADA 60 SEGUNDOS)
+      // MOTOR DE SINCRONIZACIÓN CON CANDADO DE 60 SEGUNDOS (NO CORRE CADA SEGUNDO)
       // ============================================================================
-      const sincronizarConNubePropia = useCallback(async (modo = 'auto', datosCompromisos = compromisosRef.current, datosVocab = vocabularioRef.current) => {
+      const ejecutarSincronizacion = useCallback(async (modo = 'auto', forzar = false, datosCompromisos = compromisosRef.current, datosVocab = vocabularioRef.current) => {
         if (syncEnCursoRef.current) return;
 
-        // MODO A: SINCRONIZACIÓN DIRECTA CON EL PROPIO REPOSITORIO DE GITHUB
-        if (syncConfig.metodo === 'github') {
-          const ghOwner = (syncConfig.ghOwner || detectado.owner || '').trim();
-          const ghRepo = (syncConfig.ghRepo || detectado.repo || '').trim();
-          const ghBranch = (syncConfig.ghBranch || 'main').trim();
-          const ghToken = (syncConfig.ghToken || '').trim();
+        // Candado estricto: si es un chequeo automático ('auto') y no es forzado manualmente,
+        // exigir que hayan pasado al menos 55 segundos desde la última sincronización.
+        const ahoraMs = Date.now();
+        if (modo === 'auto' && !forzar && (ahoraMs - ultimoIntentoSyncRef.current < 55000)) {
+          return;
+        }
 
-          if (!ghOwner || !ghRepo || !ghToken) {
-            setEstadoSync('local');
-            setMensajeSync('BD Local Activa');
+        const cfg = syncConfigRef.current;
+        const ghOwner = (cfg.ghOwner || detectado.owner || '').trim();
+        const ghRepo = (cfg.ghRepo || detectado.repo || '').trim();
+        const ghBranch = (cfg.ghBranch || 'main').trim();
+        const ghToken = (cfg.ghToken || '').trim();
+
+        if (!ghOwner || !ghRepo || !ghToken) {
+          setEstadoSync('local');
+          setMensajeSync('BD Local Activa');
+          return;
+        }
+
+        syncEnCursoRef.current = true;
+        ultimoIntentoSyncRef.current = ahoraMs;
+        setEstadoSync('sincronizando');
+
+        const urlApi = `https://api.github.com/repos/${ghOwner}/${ghRepo}/contents/agenda-datos.json`;
+        const headers = {
+          'Authorization': `Bearer ${ghToken}`,
+          'Accept': 'application/vnd.github.v3+json',
+          'Content-Type': 'application/json'
+        };
+
+        try {
+          const getRes = await fetch(`${urlApi}?ref=${ghBranch}&_t=${ahoraMs}`, { headers });
+          let shaActual = null;
+          let datosRemotos = null;
+
+          if (getRes.ok) {
+            const fileData = await getRes.json();
+            shaActual = fileData.sha;
+            if (fileData.content) {
+              datosRemotos = JSON.parse(base64ToUtf8(fileData.content));
+            }
+          } else if (getRes.status === 401 || getRes.status === 403) {
+            throw new Error('Token sin permisos o inválido');
+          }
+
+          const tsRemoto = Number(datosRemotos?.actualizadoEn || 0);
+          const tsLocal = Number(ultimaModRef.current || 0);
+
+          // Descargar si el archivo en GitHub es más reciente que el local o si es equipo recién configurado
+          if ((modo === 'pull' || (modo === 'auto' && (tsRemoto > tsLocal || tsLocal === 0))) && datosRemotos) {
+            if (Array.isArray(datosRemotos.compromisos)) {
+              setCompromisos(datosRemotos.compromisos);
+              compromisosRef.current = datosRemotos.compromisos;
+              await guardarEnBDLocal('agenda_javier_compromisos_v4', datosRemotos.compromisos);
+            }
+            if (Array.isArray(datosRemotos.vocabulario)) {
+              setVocabulario(datosRemotos.vocabulario);
+              vocabularioRef.current = datosRemotos.vocabulario;
+              await guardarEnBDLocal('agenda_javier_vocab_v4', datosRemotos.vocabulario);
+            }
+            const marca = tsRemoto || ahoraMs;
+            setUltimaModificacionLocal(marca);
+            ultimaModRef.current = marca;
+            localStorage.setItem('agenda_javier_last_mod_v4', String(marca));
+
+            setEstadoSync('conectado');
+            const hora = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+            setMensajeSync(`Sincronizado (${ghOwner}/${ghRepo}) · ${hora}`);
+
+            if (esperandoPrimerTokenRef.current) {
+              esperandoPrimerTokenRef.current = false;
+              setEsPrimeraConfiguracion(false);
+              setModalSyncAbierto(false);
+              mostrarMensaje('Token verificado y agenda sincronizada');
+            }
+            syncEnCursoRef.current = false;
             return;
           }
 
-          syncEnCursoRef.current = true;
-          setEstadoSync('sincronizando');
-          const urlApi = `https://api.github.com/repos/${ghOwner}/${ghRepo}/contents/agenda-datos.json`;
-          const headers = {
-            'Authorization': `Bearer ${ghToken}`,
-            'Accept': 'application/vnd.github.v3+json',
-            'Content-Type': 'application/json'
+          // Si ya están iguales, no hacer ningún commit innecesario
+          if (modo === 'auto' && datosRemotos && tsRemoto >= tsLocal && tsLocal > 0) {
+            setEstadoSync('conectado');
+            const hora = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+            setMensajeSync(`Sincronizado al día (${ghOwner}/${ghRepo}) · ${hora}`);
+            if (esperandoPrimerTokenRef.current) {
+              esperandoPrimerTokenRef.current = false;
+              setEsPrimeraConfiguracion(false);
+              setModalSyncAbierto(false);
+            }
+            syncEnCursoRef.current = false;
+            return;
+          }
+
+          // Subir cuando hay cambios locales nuevos ('push') o cuando aún no existe el archivo en GitHub
+          const nuevoTimestamp = tsLocal > 0 ? tsLocal : ahoraMs;
+          const paquete = {
+            actualizadoEn: nuevoTimestamp,
+            compromisos: datosCompromisos,
+            vocabulario: datosVocab
           };
 
-          try {
-            const getRes = await fetch(`${urlApi}?ref=${ghBranch}&_t=${Date.now()}`, { headers });
-            let shaActual = null;
-            let datosRemotos = null;
+          const bodyPayload = {
+            message: `Auto-Sync Agenda Integral (${new Date().toLocaleString('es-MX')})`,
+            content: utf8ToBase64(JSON.stringify(paquete, null, 2)),
+            branch: ghBranch
+          };
+          if (shaActual) bodyPayload.sha = shaActual;
 
-            if (getRes.ok) {
-              const fileData = await getRes.json();
-              shaActual = fileData.sha;
-              if (fileData.content) {
-                datosRemotos = JSON.parse(base64ToUtf8(fileData.content));
-              }
-            } else if (getRes.status === 401 || getRes.status === 403) {
-              throw new Error('Token sin permisos o inválido');
-            }
-
-            const tsRemoto = Number(datosRemotos?.actualizadoEn || 0);
-            const tsLocal = Number(ultimaModRef.current || 0);
-
-            // Si es computadora nueva (tsLocal === 0) o el archivo remoto en GitHub es más reciente, descargamos
-            if ((modo === 'pull' || (modo === 'auto' && (tsRemoto > tsLocal || tsLocal === 0))) && datosRemotos) {
-              if (Array.isArray(datosRemotos.compromisos)) {
-                setCompromisos(datosRemotos.compromisos);
-                compromisosRef.current = datosRemotos.compromisos;
-                await guardarEnBDLocal('agenda_javier_compromisos_v4', datosRemotos.compromisos);
-              }
-              if (Array.isArray(datosRemotos.vocabulario)) {
-                setVocabulario(datosRemotos.vocabulario);
-                vocabularioRef.current = datosRemotos.vocabulario;
-                await guardarEnBDLocal('agenda_javier_vocab_v4', datosRemotos.vocabulario);
-              }
-              const marca = tsRemoto || Date.now();
-              setUltimaModificacionLocal(marca);
-              ultimaModRef.current = marca;
-              localStorage.setItem('agenda_javier_last_mod_v4', String(marca));
-
-              setEstadoSync('conectado');
-              setSegundosParaSync(60);
-              const hora = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-              setMensajeSync(`Auto-Sync GitHub (${ghOwner}/${ghRepo}) · Última: ${hora}`);
-
-              // Si era la primera vez en una computadora nueva, cerramos el modal automáticamente al conectar
-              if (esperandoPrimerTokenRef.current) {
-                esperandoPrimerTokenRef.current = false;
-                setEsPrimeraConfiguracion(false);
-                setModalSyncAbierto(false);
-                mostrarMensaje('Token verificado y agenda sincronizada automáticamente');
-              }
-              syncEnCursoRef.current = false;
-              return;
-            }
-
-            // Si ambos están iguales, solo actualizamos reloj
-            if (modo === 'auto' && datosRemotos && tsRemoto === tsLocal && tsLocal > 0) {
-              setEstadoSync('conectado');
-              setSegundosParaSync(60);
-              const hora = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-              setMensajeSync(`Auto-Sync al día (${ghOwner}/${ghRepo}) · ${hora}`);
-              if (esperandoPrimerTokenRef.current) {
-                esperandoPrimerTokenRef.current = false;
-                setEsPrimeraConfiguracion(false);
-                setModalSyncAbierto(false);
-              }
-              syncEnCursoRef.current = false;
-              return;
-            }
-
-            // Subir a GitHub cuando hay cambios locales nuevos o cuando el archivo aún no existe
-            const nuevoTimestamp = tsLocal > 0 ? tsLocal : Date.now();
-            const paquete = {
-              actualizadoEn: nuevoTimestamp,
-              compromisos: datosCompromisos,
-              vocabulario: datosVocab
-            };
-
-            const bodyPayload = {
-              message: `Auto-Sync Agenda Integral (${new Date().toLocaleString('es-MX')})`,
-              content: utf8ToBase64(JSON.stringify(paquete, null, 2)),
-              branch: ghBranch
-            };
-            if (shaActual) bodyPayload.sha = shaActual;
-
-            const putRes = await fetch(urlApi, {
-              method: 'PUT',
-              headers,
-              body: JSON.stringify(bodyPayload)
-            });
-
-            if (putRes.ok) {
-              setUltimaModificacionLocal(nuevoTimestamp);
-              ultimaModRef.current = nuevoTimestamp;
-              localStorage.setItem('agenda_javier_last_mod_v4', String(nuevoTimestamp));
-
-              setEstadoSync('conectado');
-              setSegundosParaSync(60);
-              const hora = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-              setMensajeSync(`Auto-Sync GitHub (${ghOwner}/${ghRepo}) · ${hora}`);
-
-              if (esperandoPrimerTokenRef.current) {
-                esperandoPrimerTokenRef.current = false;
-                setEsPrimeraConfiguracion(false);
-                setModalSyncAbierto(false);
-                mostrarMensaje('Token guardado y sincronización automática activada');
-              }
-            } else {
-              throw new Error('Token o repositorio inválido');
-            }
-          } catch (err) {
-            setEstadoSync('error');
-            setMensajeSync('Guardado en BD Local (Revisa tu Token o nombre de usuario/repo)');
-          } finally {
-            syncEnCursoRef.current = false;
-          }
-        }
-      }, [syncConfig, detectado]);
-
-      // 3. DISPARADOR AUTOMÁTICO AL INTRODUCIR EL TOKEN DE GITHUB
-      useEffect(() => {
-        if (!bdLista) return;
-        const ghOwner = (syncConfig.ghOwner || detectado.owner || '').trim();
-        const ghRepo = (syncConfig.ghRepo || detectado.repo || '').trim();
-        const ghToken = (syncConfig.ghToken || '').trim();
-
-        if (syncConfig.metodo !== 'github' || ghToken.length < 15 || !ghOwner || !ghRepo) return;
-
-        const timerInmediato = setTimeout(() => {
-          sincronizarConNubePropia('auto');
-        }, 600);
-
-        return () => clearTimeout(timerInmediato);
-      }, [bdLista, syncConfig.ghToken, syncConfig.ghOwner, syncConfig.ghRepo, syncConfig.ghBranch, syncConfig.metodo, sincronizarConNubePropia]);
-
-      // 4. TEMPORIZADOR AUTOMÁTICO CADA 60 SEGUNDOS (1 MINUTO) + AL ENFOCAR LA VENTANA
-      useEffect(() => {
-        if (!bdLista) return;
-        const ghOwner = (syncConfig.ghOwner || detectado.owner || '').trim();
-        const ghRepo = (syncConfig.ghRepo || detectado.repo || '').trim();
-        const ghToken = (syncConfig.ghToken || '').trim();
-
-        if (syncConfig.metodo !== 'github' || ghToken.length < 15 || !ghOwner || !ghRepo) return;
-
-        const intervaloCadaSegundo = setInterval(() => {
-          setSegundosParaSync((prev) => {
-            if (prev <= 1) {
-              sincronizarConNubePropia('auto');
-              return 60;
-            }
-            return prev - 1;
+          const putRes = await fetch(urlApi, {
+            method: 'PUT',
+            headers,
+            body: JSON.stringify(bodyPayload)
           });
-        }, 1000);
 
-        const alVolverALaApp = () => {
-          sincronizarConNubePropia('auto');
-          setSegundosParaSync(60);
-        };
+          if (putRes.ok) {
+            setUltimaModificacionLocal(nuevoTimestamp);
+            ultimaModRef.current = nuevoTimestamp;
+            localStorage.setItem('agenda_javier_last_mod_v4', String(nuevoTimestamp));
 
-        window.addEventListener('focus', alVolverALaApp);
-        return () => {
-          clearInterval(intervaloCadaSegundo);
-          window.removeEventListener('focus', alVolverALaApp);
-        };
-      }, [bdLista, syncConfig, detectado, sincronizarConNubePropia]);
+            setEstadoSync('conectado');
+            const hora = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+            setMensajeSync(`Sincronizado (${ghOwner}/${ghRepo}) · ${hora}`);
+
+            if (esperandoPrimerTokenRef.current) {
+              esperandoPrimerTokenRef.current = false;
+              setEsPrimeraConfiguracion(false);
+              setModalSyncAbierto(false);
+              mostrarMensaje('Token guardado y sincronización activada');
+            }
+          } else {
+            throw new Error('Token o repositorio inválido');
+          }
+        } catch (err) {
+          setEstadoSync('error');
+          setMensajeSync('Guardado en BD Local (Revisa tu Token o nombre de usuario/repo)');
+        } finally {
+          syncEnCursoRef.current = false;
+        }
+      }, [detectado]);
+
+      // Guardar referencia estable a la función de sincronización
+      const syncFnRef = useRef(ejecutarSincronizacion);
+      useEffect(() => {
+        syncFnRef.current = ejecutarSincronizacion;
+      }, [ejecutarSincronizacion]);
+
+      // 3. SINCRONIZACIÓN ÚNICA AL INTRODUCIR O CAMBIAR EL TOKEN DE GITHUB
+      useEffect(() => {
+        if (!bdLista) return;
+        const ghOwner = (syncConfig.ghOwner || detectado.owner || '').trim();
+        const ghRepo = (syncConfig.ghRepo || detectado.repo || '').trim();
+        const ghToken = (syncConfig.ghToken || '').trim();
+
+        if (ghToken.length < 15 || !ghOwner || !ghRepo) return;
+
+        const timerToken = setTimeout(() => {
+          syncFnRef.current('auto', true);
+        }, 800);
+
+        return () => clearTimeout(timerToken);
+      }, [bdLista, syncConfig.ghToken, syncConfig.ghOwner, syncConfig.ghRepo, syncConfig.ghBranch, detectado]);
+
+      // 4. TEMPORIZADOR PURO DE 60,000 MILISEGUNDOS (CADA 1 MINUTO EXACTO, NUNCA CADA SEGUNDO)
+      useEffect(() => {
+        if (!bdLista) return;
+
+        const intervaloUnMinuto = setInterval(() => {
+          const cfg = syncConfigRef.current;
+          const ghToken = (cfg.ghToken || '').trim();
+          if (ghToken.length >= 15) {
+            syncFnRef.current('auto', true);
+          }
+        }, 60000); // 60,000 ms = 60 segundos exactos
+
+        return () => clearInterval(intervaloUnMinuto);
+      }, [bdLista]);
 
       // Guardar cambios locales y subirlos inmediatamente a GitHub
       const actualizarYPublicarCompromisos = (nuevosCompromisos, mensajeExito) => {
@@ -700,7 +702,8 @@
         guardarEnBDLocal('agenda_javier_compromisos_v4', nuevosCompromisos);
         if (mensajeExito) mostrarMensaje(mensajeExito);
 
-        sincronizarConNubePropia('push', nuevosCompromisos, vocabularioRef.current);
+        // Al crear, editar o borrar un compromiso sí subimos el cambio al momento (forzar = true)
+        syncFnRef.current('push', true, nuevosCompromisos, vocabularioRef.current);
       };
 
       // ============================================================================
@@ -1271,7 +1274,7 @@
                       <span className={`w-1.5 h-1.5 rounded-full ${estadoSync === 'conectado' ? 'bg-emerald-500' : estadoSync === 'sincronizando' ? 'bg-amber-400 animate-ping' : estadoSync === 'error' ? 'bg-rose-500' : 'bg-indigo-400'}`} />
                       <span>
                         {estadoSync === 'conectado'
-                          ? 'Sincronizado'
+                          ? 'Sincronizado (Cada 1 min)'
                           : estadoSync === 'sincronizando'
                           ? 'Sincronizando...'
                           : 'Token GitHub'}
@@ -1401,7 +1404,7 @@
               })}
             </section>
 
-            {/* VISTA 1: RESUMEN (SIN EL CUADRO DE AUTO-SINCRONIZACIÓN) */}
+            {/* VISTA 1: RESUMEN */}
             {vistaActiva === 'dashboard' && (
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-1 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 space-y-4">
@@ -1948,7 +1951,7 @@
             </div>
           )}
 
-          {/* MODAL DE CONFIGURACIÓN DE TOKEN (SE ABRE AUTOMÁTICAMENTE LA PRIMERA VEZ EN UN EQUIPO NUEVO) */}
+          {/* MODAL DE CONFIGURACIÓN DE TOKEN */}
           {modalSyncAbierto && (
             <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-xs flex items-center justify-center p-4">
               <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-5 max-h-[92vh] overflow-y-auto">
@@ -1956,13 +1959,13 @@
                   <div>
                     <h3 className="font-extrabold text-base sm:text-lg">
                       {esPrimeraConfiguracion
-                        ? 'Bienvenido: Vincula este dispositivo nueva vez'
-                        : 'Ajustes de Sincronización'}
+                        ? 'Bienvenido: Configura tu Token en este dispositivo'
+                        : 'Ajustes de Sincronización (Cada 60 segundos)'}
                     </h3>
                     <p className="text-xs text-slate-500">
                       {esPrimeraConfiguracion
-                        ? 'Ingresa tu Token de GitHub una sola vez en este equipo para activar la sincronización automática cada minuto.'
-                        : 'Tu Token se mantiene guardado en este dispositivo y sincroniza cada 60 segundos.'}
+                        ? 'Ingresa tu Token de GitHub una sola vez en este equipo para sincronizar automáticamente cada minuto.'
+                        : 'El sistema sincroniza en segundo plano cada 60 segundos exactos.'}
                     </p>
                   </div>
                   <button
@@ -2037,7 +2040,7 @@
 
                     <div>
                       <label className="block text-xs font-bold uppercase text-slate-500 mb-1">
-                        Token Personal de GitHub (Se guarda y conecta automáticamente al pegarlo)
+                        Token Personal de GitHub (Se guarda automáticamente al pegarlo)
                       </label>
                       <input
                         type="password"
@@ -2064,18 +2067,18 @@
                         }}
                         className="px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-semibold"
                       >
-                        Usar solo memoria local por ahora
+                        Cerrar ventana
                       </button>
                       <div className="flex gap-2">
                         <button
                           type="button"
                           onClick={() => {
                             esperandoPrimerTokenRef.current = true;
-                            sincronizarConNubePropia('auto');
+                            syncFnRef.current('auto', true);
                           }}
                           className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold"
                         >
-                          Conectar y Cerrar
+                          Sincronizar Ahora
                         </button>
                       </div>
                     </div>
