@@ -1,0 +1,2596 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import { initializeApp } from 'firebase/app';
+import { 
+  getAuth, 
+  signInWithCustomToken, 
+  signInAnonymously, 
+  onAuthStateChanged 
+} from 'firebase/auth';
+import { 
+  getFirestore, 
+  collection, 
+  doc, 
+  setDoc, 
+  deleteDoc, 
+  onSnapshot 
+} from 'firebase/firestore';
+import { 
+  Camera, 
+  GraduationCap, 
+  User, 
+  Calendar as CalendarIcon, 
+  LayoutDashboard, 
+  ListTodo, 
+  Plus, 
+  Search, 
+  CheckCircle2, 
+  Circle, 
+  Clock, 
+  AlertCircle, 
+  ChevronLeft, 
+  ChevronRight, 
+  Trash2, 
+  Edit3, 
+  Filter, 
+  Sparkles, 
+  Radio, 
+  Film, 
+  Home, 
+  Sun, 
+  Moon, 
+  X, 
+  Tag, 
+  FileText,
+  BarChart3,
+  Check,
+  Mic,
+  MicOff,
+  Wand2,
+  BookOpen,
+  Volume2,
+  Loader2,
+  Settings2,
+  CornerDownLeft
+} from 'lucide-react';
+
+// ==========================================
+// CONFIGURACIÓN DE FIREBASE Y CONSTANTES
+// ==========================================
+let app = null;
+let auth = null;
+let db = null;
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'agenda-3-ambitos-app';
+
+try {
+  if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+    const firebaseConfig = JSON.parse(__firebase_config);
+    app = initializeApp(firebaseConfig);
+    auth = getAuth(app);
+    db = getFirestore(app);
+  }
+} catch (error) {
+  console.error("Error al inicializar Firebase:", error);
+}
+
+// Definición de los 3 Ámbitos con sus paletas de colores y subcategorías sugeridas
+const AMBITOS = {
+  'Arte y Video': {
+    id: 'Arte y Video',
+    nombre: 'Arte y Video',
+    descripcion: 'Estudio fotográfico, producción de video, edición e impresiones',
+    icon: Camera,
+    colorHex: '#f59e0b', // Amber 500
+    bgLight: 'bg-amber-50 dark:bg-amber-950/40',
+    borderLight: 'border-amber-200 dark:border-amber-800/60',
+    textClass: 'text-amber-700 dark:text-amber-300',
+    badgeClass: 'bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200 border-amber-300 dark:border-amber-700',
+    btnClass: 'bg-amber-500 hover:bg-amber-600 text-white',
+    dotClass: 'bg-amber-500',
+    subcategorias: [
+      'Sesión Fotográfica',
+      'Edición de Video / Foto',
+      'Impresión Fine Art / Lona',
+      'Cobertura de Evento',
+      'Atención a Clientes',
+      'Mantenimiento de Equipo'
+    ]
+  },
+  'Preparatoria Lázaro Cárdenas': {
+    id: 'Preparatoria Lázaro Cárdenas',
+    nombre: 'Preparatoria Lázaro Cárdenas',
+    descripcion: 'Docencia, Taller de Medios, Radio 95.1 FM y proyectos educativos',
+    icon: GraduationCap,
+    colorHex: '#4f46e5', // Indigo 600
+    bgLight: 'bg-indigo-50 dark:bg-indigo-950/40',
+    borderLight: 'border-indigo-200 dark:border-indigo-800/60',
+    textClass: 'text-indigo-700 dark:text-indigo-300',
+    badgeClass: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/60 dark:text-indigo-200 border-indigo-300 dark:border-indigo-700',
+    btnClass: 'bg-indigo-600 hover:bg-indigo-700 text-white',
+    dotClass: 'bg-indigo-600',
+    subcategorias: [
+      'Clase Frente a Grupo',
+      'Taller de Medios',
+      'Radio Escolar 95.1 FM',
+      'Proyecto Educativo / Concurso',
+      'Revisión y Calificaciones',
+      'Reunión Académica'
+    ]
+  },
+  'Personal': {
+    id: 'Personal',
+    nombre: 'Personal',
+    descripcion: 'Familia, salud, hogar, trámites y descanso',
+    icon: User,
+    colorHex: '#10b981', // Emerald 500
+    bgLight: 'bg-emerald-50 dark:bg-emerald-950/40',
+    borderLight: 'border-emerald-200 dark:border-emerald-800/60',
+    textClass: 'text-emerald-700 dark:text-emerald-300',
+    badgeClass: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200 border-emerald-300 dark:border-emerald-700',
+    btnClass: 'bg-emerald-600 hover:bg-emerald-700 text-white',
+    dotClass: 'bg-emerald-500',
+    subcategorias: [
+      'Familia y Hogar',
+      'Salud y Ejercicio',
+      'Trámites y Finanzas',
+      'Desarrollo Personal',
+      'Descanso / Ocio',
+      'Compras'
+    ]
+  }
+};
+
+const PRIORIDADES = {
+  'Alta': { label: 'Alta', color: 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/50 border-rose-200 dark:border-rose-800' },
+  'Media': { label: 'Media', color: 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/50 border-amber-200 dark:border-amber-800' },
+  'Baja': { label: 'Baja', color: 'text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700' }
+};
+
+// Vocabulario personalizado inicial para corrección fonética y reconocimiento de voz
+const VOCABULARIO_INICIAL = [
+  { id: 'voc-1', termino: 'Cananea', variantes: 'cananea, kananea, cana nea', categoria: 'General' },
+  { id: 'voc-2', termino: 'Fuerza Puma', variantes: 'fuerza puma, fuersa puma, pumas prepa', categoria: 'Preparatoria Lázaro Cárdenas' },
+  { id: 'voc-3', termino: '95.1 FM', variantes: '95.1, noventa y cinco punto uno, 95 1 fm, radio 95.1', categoria: 'Preparatoria Lázaro Cárdenas' },
+  { id: 'voc-4', termino: 'Taller de Medios', variantes: 'taller de medios, taller medios', categoria: 'Preparatoria Lázaro Cárdenas' },
+  { id: 'voc-5', termino: 'Fine Art', variantes: 'fine art, fain art, impresión fine art', categoria: 'Arte y Video' },
+  { id: 'voc-6', termino: 'Vértice', variantes: 'vertice, vértice, estudio vértice', categoria: 'Arte y Video' },
+  { id: 'voc-7', termino: 'Lázaro Cárdenas', variantes: 'lazaro cardenas, lázaro cárdenas, prepa lazaro', categoria: 'Preparatoria Lázaro Cárdenas' }
+];
+
+const EJEMPLOS_DICTADO = [
+  'Agendar mañana a las 4 de la tarde sesión fotográfica en Estudio Vértice de Arte y Video con prioridad alta',
+  'El lunes a las 10 am junta de Radio Escolar 95.1 FM Fuerza Puma en la Preparatoria Lázaro Cárdenas',
+  'Pasado mañana a las 6 de la tarde impresión Fine Art para exposición en Cananea en Arte y Video',
+  'Hoy a las 8 de la noche cena familiar y descanso en ámbito Personal con prioridad media'
+];
+
+// Utilidad para obtener fecha en formato YYYY-MM-DD local
+const formatDateISO = (dateObj) => {
+  const year = dateObj.getFullYear();
+  const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const day = String(dateObj.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const addDays = (dateObj, days) => {
+  const result = new Date(dateObj);
+  result.setDate(result.getDate() + days);
+  return result;
+};
+
+// Datos iniciales de muestra por si la agenda está vacía
+const generarCompromisosIniciales = () => {
+  const hoy = new Date();
+  const manana = addDays(hoy, 1);
+  const pasado = addDays(hoy, 2);
+  const ayer = addDays(hoy, -1);
+
+  return [
+    {
+      id: 'demo-1',
+      titulo: 'Sesión de Retrato en Estudio y Selección',
+      ambito: 'Arte y Video',
+      subcategoria: 'Sesión Fotográfica',
+      fecha: formatDateISO(hoy),
+      horaInicio: '10:00',
+      horaFin: '12:00',
+      prioridad: 'Alta',
+      notas: 'Preparar esquema de iluminación con softbox octagonal y fondo gris.',
+      completado: false,
+      creadoEn: Date.now() - 3600000
+    },
+    {
+      id: 'demo-2',
+      titulo: 'Producción de Cápsulas en Radio 95.1 FM',
+      ambito: 'Preparatoria Lázaro Cárdenas',
+      subcategoria: 'Radio Escolar 95.1 FM',
+      fecha: formatDateISO(hoy),
+      horaInicio: '13:30',
+      horaFin: '15:00',
+      prioridad: 'Alta',
+      notas: 'Grabar cortinillas con los alumnos del Taller de Medios y revisar niveles de audio.',
+      completado: false,
+      creadoEn: Date.now() - 7200000
+    },
+    {
+      id: 'demo-3',
+      titulo: 'Cena familiar y caminata vespertina',
+      ambito: 'Personal',
+      subcategoria: 'Familia y Hogar',
+      fecha: formatDateISO(hoy),
+      horaInicio: '19:30',
+      horaFin: '21:00',
+      prioridad: 'Media',
+      notas: 'Desconectar notificaciones del trabajo durante la cena.',
+      completado: false,
+      creadoEn: Date.now() - 10800000
+    },
+    {
+      id: 'demo-4',
+      titulo: 'Edición de Video Promocional e Impresión de Lonas',
+      ambito: 'Arte y Video',
+      subcategoria: 'Edición de Video / Foto',
+      fecha: formatDateISO(manana),
+      horaInicio: '09:30',
+      horaFin: '12:30',
+      prioridad: 'Media',
+      notas: 'Exportar versión en 4K y verificar perfiles de color CMYK para el plotter.',
+      completado: false,
+      creadoEn: Date.now() - 14400000
+    },
+    {
+      id: 'demo-5',
+      titulo: 'Asesoría de Proyecto Educativo STEM Fuerza Puma',
+      ambito: 'Preparatoria Lázaro Cárdenas',
+      subcategoria: 'Proyecto Educativo / Concurso',
+      fecha: formatDateISO(manana),
+      horaInicio: '16:00',
+      horaFin: '17:30',
+      prioridad: 'Alta',
+      notas: 'Revisar bitácora de avances del prototipo con el equipo de estudiantes en Cananea.',
+      completado: false,
+      creadoEn: Date.now() - 18000000
+    },
+    {
+      id: 'demo-6',
+      titulo: 'Pago de servicios y organización de recibos',
+      ambito: 'Personal',
+      subcategoria: 'Trámites y Finanzas',
+      fecha: formatDateISO(ayer),
+      horaInicio: '11:00',
+      horaFin: '11:45',
+      prioridad: 'Baja',
+      notas: 'Guardar comprobantes digitales en carpeta del mes.',
+      completado: true,
+      creadoEn: Date.now() - 86400000
+    },
+    {
+      id: 'demo-7',
+      titulo: 'Planeación didáctica de la próxima semana',
+      ambito: 'Preparatoria Lázaro Cárdenas',
+      subcategoria: 'Clase Frente a Grupo',
+      fecha: formatDateISO(pasado),
+      horaInicio: '11:00',
+      horaFin: '13:00',
+      prioridad: 'Media',
+      notas: 'Preparar presentación interactiva y rúbricas de evaluación.',
+      completado: false,
+      creadoEn: Date.now() - 90000000
+    }
+  ];
+};
+
+// ==========================================
+// COMPONENTE PRINCIPAL
+// ==========================================
+export default function App() {
+  // Estados de Tema y Navegación
+  const [darkMode, setDarkMode] = useState(true);
+  const [vistaActiva, setVistaActiva] = useState('dashboard'); // 'dashboard' | 'calendario' | 'lista'
+  const [modoCalendario, setModoCalendario] = useState('mes'); // 'mes' | 'semana'
+
+  // Estados de Firebase y Datos
+  const [user, setUser] = useState(null);
+  const [compromisos, setCompromisos] = useState([]);
+  const [vocabulario, setVocabulario] = useState(VOCABULARIO_INICIAL);
+  const [cargando, setCargando] = useState(true);
+  const [sincronizadoNube, setSincronizadoNube] = useState(false);
+
+  // Estados de Filtros
+  const [filtroAmbito, setFiltroAmbito] = useState('Todos');
+  const [filtroEstado, setFiltroEstado] = useState('Todos'); // 'Todos' | 'Pendientes' | 'Completados'
+  const [busqueda, setBusqueda] = useState('');
+
+  // Estados de Calendario
+  const [fechaCursor, setFechaCursor] = useState(new Date());
+  const [diaSeleccionado, setDiaSeleccionado] = useState(formatDateISO(new Date()));
+
+  // Estados de Modal (Crear / Editar)
+  const [modalAbierto, setModalAbierto] = useState(false);
+  const [compromisoEditando, setCompromisoEditando] = useState(null);
+  const [confirmarEliminarId, setConfirmarEliminarId] = useState(null);
+  const [notificacion, setNotificacion] = useState(null);
+
+  // Estados del Sistema de Dictado por Voz Personalizado
+  const [modalVozAbierto, setModalVozAbierto] = useState(false);
+  const [tabModalVoz, setTabModalVoz] = useState('dictar'); // 'dictar' | 'vocabulario'
+  const [escuchandoVoz, setEscuchandoVoz] = useState(false);
+  const [campoDictadoActivo, setCampoDictadoActivo] = useState(null); // 'inteligente' | 'titulo' | 'notas' | null
+  const [textoDictado, setTextoDictado] = useState('');
+  const [procesandoIA, setProcesandoIA] = useState(false);
+  const [propuestaVoz, setPropuestaVoz] = useState(null);
+  const [reconocimientoRef, setReconocimientoRef] = useState(null);
+  const [nuevoTermino, setNuevoTermino] = useState({
+    termino: '',
+    variantes: '',
+    categoria: 'Arte y Video'
+  });
+
+  // Estado del Formulario
+  const [formData, setFormData] = useState({
+    titulo: '',
+    ambito: 'Arte y Video',
+    subcategoria: 'Sesión Fotográfica',
+    fecha: formatDateISO(new Date()),
+    horaInicio: '09:00',
+    horaFin: '10:00',
+    prioridad: 'Media',
+    notas: '',
+    completado: false
+  });
+
+  // Mostrar notificación temporal
+  const mostrarMensaje = (texto, tipo = 'exito') => {
+    setNotificacion({ texto, tipo });
+    setTimeout(() => {
+      setNotificacion(null);
+    }, 3200);
+  };
+
+  // ==========================================
+  // LÓGICA DE CORRECCIÓN FONÉTICA Y DICTADO
+  // ==========================================
+  const aplicarVocabularioPersonalizado = (textoOriginal) => {
+    if (!textoOriginal) return '';
+    let resultado = textoOriginal;
+
+    vocabulario.forEach((item) => {
+      const listaVariantes = (item.variantes || '')
+        .split(',')
+        .map((v) => v.trim())
+        .filter(Boolean);
+      // Incluir el término mismo para normalizar mayúsculas/acentos
+      const todas = Array.from(new Set([...listaVariantes, item.termino]));
+
+      todas.forEach((variante) => {
+        if (!variante) return;
+        const escapado = variante.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(`\\b${escapado}\\b`, 'gi');
+        resultado = resultado.replace(regex, item.termino);
+      });
+    });
+
+    return resultado;
+  };
+
+  // Analizador local rápido (respaldo instantáneo y base antes de Gemini)
+  const analizarTextoLocalmente = (textoBruto) => {
+    const texto = aplicarVocabularioPersonalizado(textoBruto);
+    const lower = texto.toLowerCase();
+    const hoy = new Date();
+
+    // 1. Detectar Ámbito
+    let ambito = 'Arte y Video';
+    if (
+      lower.includes('prepa') ||
+      lower.includes('lázaro cárdenas') ||
+      lower.includes('lazaro cardenas') ||
+      lower.includes('radio') ||
+      lower.includes('95.1') ||
+      lower.includes('taller de medios') ||
+      lower.includes('fuerza puma') ||
+      lower.includes('clase') ||
+      lower.includes('alumno') ||
+      lower.includes('concurso')
+    ) {
+      ambito = 'Preparatoria Lázaro Cárdenas';
+    } else if (
+      lower.includes('personal') ||
+      lower.includes('familia') ||
+      lower.includes('médico') ||
+      lower.includes('salud') ||
+      lower.includes('casa') ||
+      lower.includes('hogar') ||
+      lower.includes('cena') ||
+      lower.includes('descanso') ||
+      lower.includes('trámite')
+    ) {
+      ambito = 'Personal';
+    } else if (
+      lower.includes('arte y video') ||
+      lower.includes('sesión') ||
+      lower.includes('foto') ||
+      lower.includes('video') ||
+      lower.includes('fine art') ||
+      lower.includes('vértice') ||
+      lower.includes('lona') ||
+      lower.includes('edición') ||
+      lower.includes('cliente')
+    ) {
+      ambito = 'Arte y Video';
+    }
+
+    // 2. Detectar Subcategoría según ámbito
+    let subcategoria = AMBITOS[ambito].subcategorias[0];
+    if (ambito === 'Arte y Video') {
+      if (lower.includes('edición') || lower.includes('editar')) subcategoria = 'Edición de Video / Foto';
+      else if (lower.includes('fine art') || lower.includes('impresión') || lower.includes('lona')) subcategoria = 'Impresión Fine Art / Lona';
+      else if (lower.includes('cliente') || lower.includes('cotización') || lower.includes('entrega')) subcategoria = 'Atención a Clientes';
+      else subcategoria = 'Sesión Fotográfica';
+    } else if (ambito === 'Preparatoria Lázaro Cárdenas') {
+      if (lower.includes('95.1') || lower.includes('radio')) subcategoria = 'Radio Escolar 95.1 FM';
+      else if (lower.includes('taller de medios') || lower.includes('medios')) subcategoria = 'Taller de Medios';
+      else if (lower.includes('proyecto') || lower.includes('concurso') || lower.includes('fuerza puma')) subcategoria = 'Proyecto Educativo / Concurso';
+      else if (lower.includes('califica') || lower.includes('revisión')) subcategoria = 'Revisión y Calificaciones';
+      else if (lower.includes('junta') || lower.includes('reunión')) subcategoria = 'Reunión Académica';
+      else subcategoria = 'Clase Frente a Grupo';
+    } else {
+      if (lower.includes('salud') || lower.includes('médico') || lower.includes('ejercicio')) subcategoria = 'Salud y Ejercicio';
+      else if (lower.includes('trámite') || lower.includes('pago') || lower.includes('banco')) subcategoria = 'Trámites y Finanzas';
+      else if (lower.includes('descanso') || lower.includes('ocio')) subcategoria = 'Descanso / Ocio';
+      else subcategoria = 'Familia y Hogar';
+    }
+
+    // 3. Detectar Fecha
+    let fechaObj = new Date(hoy);
+    if (lower.includes('pasado mañana')) {
+      fechaObj = addDays(hoy, 2);
+    } else if (lower.includes('mañana') && !lower.includes('de la mañana')) {
+      fechaObj = addDays(hoy, 1);
+    } else {
+      const diasNombres = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+      diasNombres.forEach((diaNombre, idx) => {
+        if (lower.includes(`el ${diaNombre}`) || lower.startsWith(diaNombre)) {
+          const actual = hoy.getDay();
+          let diff = (idx - actual + 7) % 7;
+          if (diff === 0) diff = 7;
+          fechaObj = addDays(hoy, diff);
+        }
+      });
+    }
+    const fecha = formatDateISO(fechaObj);
+
+    // 4. Detectar Hora
+    let horaInicio = '09:00';
+    let horaFin = '10:30';
+    const matchHora = lower.match(/a las (\d{1,2})(?::(\d{2}))?\s*(am|pm|de la tarde|de la noche|de la mañana)?/i);
+    if (matchHora) {
+      let h = parseInt(matchHora[1], 10);
+      const m = matchHora[2] ? parseInt(matchHora[2], 10) : 0;
+      const periodo = (matchHora[3] || '').toLowerCase();
+
+      if ((periodo.includes('pm') || periodo.includes('tarde') || periodo.includes('noche')) && h < 12) {
+        h += 12;
+      } else if (periodo.includes('mañana') && h === 12) {
+        h = 0;
+      }
+      horaInicio = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+      const hFin = Math.min(23, h + 1);
+      horaFin = `${String(hFin).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    }
+
+    // 5. Detectar Prioridad
+    let prioridad = 'Media';
+    if (lower.includes('prioridad alta') || lower.includes('urgente') || lower.includes('importante')) {
+      prioridad = 'Alta';
+    } else if (lower.includes('prioridad baja') || lower.includes('sin prisa')) {
+      prioridad = 'Baja';
+    }
+
+    // 6. Limpiar Título
+    let tituloLimpio = texto
+      .replace(/^(agendar|programar|anotar|crear|guardar)\s+/i, '')
+      .replace(/\b(hoy|mañana|pasado mañana|el lunes|el martes|el miércoles|el jueves|el viernes|el sábado|el domingo)\b/gi, '')
+      .replace(/a las \d{1,2}(:\d{2})?\s*(am|pm|de la tarde|de la noche|de la mañana|horas|hrs)?/gi, '')
+      .replace(/con prioridad (alta|media|baja)/gi, '')
+      .replace(/en el ámbito (de )?(arte y video|preparatoria lázaro cárdenas|personal)/gi, '')
+      .replace(/en (arte y video|la preparatoria lázaro cárdenas|preparatoria lázaro cárdenas|ámbito personal)/gi, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (tituloLimpio.length > 0) {
+      tituloLimpio = tituloLimpio.charAt(0).toUpperCase() + tituloLimpio.slice(1);
+    } else {
+      tituloLimpio = `${subcategoria} (${ambito})`;
+    }
+
+    return {
+      titulo: tituloLimpio,
+      ambito,
+      subcategoria,
+      fecha,
+      horaInicio,
+      horaFin,
+      prioridad,
+      notas: `Dictado por voz: "${texto}"`
+    };
+  };
+
+  // Procesamiento inteligente con Gemini API + respaldo local
+  const procesarDictadoConIA = async (textoParaAnalizar) => {
+    const textoCorregido = aplicarVocabularioPersonalizado(textoParaAnalizar || textoDictado);
+    if (!textoCorregido.trim()) {
+      mostrarMensaje('Primero dicta o escribe una instrucción para analizar', 'alerta');
+      return;
+    }
+
+    setTextoDictado(textoCorregido);
+    setProcesandoIA(true);
+
+    // Base local inmediata por si falla la red o mientras responde
+    const resultadoLocal = analizarTextoLocalmente(textoCorregido);
+
+    try {
+      const apiKey = "";
+      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+      const listaVocabulario = vocabulario.map((v) => v.termino).join(', ');
+
+      const systemPrompt = `Eres un asistente experto de agenda personal en Cananea, Sonora, México.
+Hoy es ${hoyISO} (${formatearFechaHumana(hoyISO)}).
+El usuario maneja 3 ámbitos exactos:
+1. "Arte y Video" (Subcategorías: "Sesión Fotográfica", "Edición de Video / Foto", "Impresión Fine Art / Lona", "Cobertura de Evento", "Atención a Clientes", "Mantenimiento de Equipo").
+2. "Preparatoria Lázaro Cárdenas" (Subcategorías: "Clase Frente a Grupo", "Taller de Medios", "Radio Escolar 95.1 FM", "Proyecto Educativo / Concurso", "Revisión y Calificaciones", "Reunión Académica").
+3. "Personal" (Subcategorías: "Familia y Hogar", "Salud y Ejercicio", "Trámites y Finanzas", "Desarrollo Personal", "Descanso / Ocio", "Compras").
+
+Términos personalizados del usuario: ${listaVocabulario}.
+Extrae del texto dictado los campos estructurados del compromiso.`;
+
+      const payload = {
+        contents: [{ parts: [{ text: `Analiza este dictado de voz: "${textoCorregido}"` }] }],
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        generationConfig: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: "OBJECT",
+            properties: {
+              titulo: { type: "STRING" },
+              ambito: { type: "STRING", enum: ["Arte y Video", "Preparatoria Lázaro Cárdenas", "Personal"] },
+              subcategoria: { type: "STRING" },
+              fecha: { type: "STRING", description: "Formato YYYY-MM-DD" },
+              horaInicio: { type: "STRING", description: "Formato HH:MM 24 hrs" },
+              horaFin: { type: "STRING", description: "Formato HH:MM 24 hrs" },
+              prioridad: { type: "STRING", enum: ["Alta", "Media", "Baja"] },
+              notas: { type: "STRING" }
+            },
+            required: ["titulo", "ambito", "subcategoria", "fecha", "horaInicio", "horaFin", "prioridad", "notas"]
+          }
+        }
+      };
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        const jsonText = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (jsonText) {
+          const parsed = JSON.parse(jsonText);
+          setPropuestaVoz({
+            titulo: parsed.titulo || resultadoLocal.titulo,
+            ambito: AMBITOS[parsed.ambito] ? parsed.ambito : resultadoLocal.ambito,
+            subcategoria: parsed.subcategoria || resultadoLocal.subcategoria,
+            fecha: parsed.fecha || resultadoLocal.fecha,
+            horaInicio: parsed.horaInicio || resultadoLocal.horaInicio,
+            horaFin: parsed.horaFin || resultadoLocal.horaFin,
+            prioridad: PRIORIDADES[parsed.prioridad] ? parsed.prioridad : resultadoLocal.prioridad,
+            notas: parsed.notas || resultadoLocal.notas
+          });
+          setProcesandoIA(false);
+          return;
+        }
+      }
+    } catch (err) {
+      // Fallback silencioso al analizador local
+    }
+
+    setPropuestaVoz(resultadoLocal);
+    setProcesandoIA(false);
+  };
+
+  // Iniciar o detener micrófono con Web Speech API (es-MX)
+  const alternarReconocimientoVoz = (destino = 'inteligente') => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (escuchandoVoz && reconocimientoRef) {
+      try {
+        reconocimientoRef.stop();
+      } catch (e) {}
+      setEscuchandoVoz(false);
+      setCampoDictadoActivo(null);
+      return;
+    }
+
+    if (!SpeechRecognition) {
+      mostrarMensaje('Tu navegador restringe el micrófono directo. Usa el cuadro interactivo o los ejemplos de voz.', 'alerta');
+      if (destino !== 'inteligente') {
+        setModalVozAbierto(true);
+      }
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'es-MX';
+      recognition.continuous = false;
+      recognition.interimResults = true;
+
+      recognition.onstart = () => {
+        setEscuchandoVoz(true);
+        setCampoDictadoActivo(destino);
+      };
+
+      recognition.onresult = (event) => {
+        let transcripcion = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          transcripcion += event.results[i][0].transcript;
+        }
+        const corregido = aplicarVocabularioPersonalizado(transcripcion);
+
+        if (destino === 'inteligente') {
+          setTextoDictado(corregido);
+        } else if (destino === 'titulo') {
+          setFormData((prev) => ({ ...prev, titulo: corregido }));
+        } else if (destino === 'notas') {
+          setFormData((prev) => ({
+            ...prev,
+            notas: prev.notas ? `${prev.notas} ${corregido}`.trim() : corregido
+          }));
+        }
+      };
+
+      recognition.onerror = () => {
+        setEscuchandoVoz(false);
+        setCampoDictadoActivo(null);
+        mostrarMensaje('No se detectó audio o el permiso de micrófono fue bloqueado. Puedes dictar o elegir una frase de muestra.', 'alerta');
+      };
+
+      recognition.onend = () => {
+        setEscuchandoVoz(false);
+        setCampoDictadoActivo(null);
+      };
+
+      setReconocimientoRef(recognition);
+      recognition.start();
+    } catch (error) {
+      setEscuchandoVoz(false);
+      setCampoDictadoActivo(null);
+    }
+  };
+
+  // Guardar nuevo término en el vocabulario personalizado (Firestore + Estado)
+  const agregarTerminoVocabulario = async (e) => {
+    e.preventDefault();
+    if (!nuevoTermino.termino.trim()) return;
+
+    const id = `voc-${Date.now()}`;
+    const item = {
+      id,
+      termino: nuevoTermino.termino.trim(),
+      variantes: nuevoTermino.variantes.trim() || nuevoTermino.termino.trim().toLowerCase(),
+      categoria: nuevoTermino.categoria
+    };
+
+    setVocabulario((prev) => [...prev, item]);
+    setNuevoTermino({ termino: '', variantes: '', categoria: 'Arte y Video' });
+    mostrarMensaje(`"${item.termino}" añadido a tu diccionario de voz`);
+
+    if (user && db) {
+      try {
+        const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'vocabulario', id);
+        await setDoc(docRef, item);
+      } catch (err) {
+        console.error("Error guardando vocabulario:", err);
+      }
+    }
+  };
+
+  const eliminarTerminoVocabulario = async (id) => {
+    setVocabulario((prev) => prev.filter((v) => v.id !== id));
+    if (user && db) {
+      try {
+        const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'vocabulario', id);
+        await deleteDoc(docRef);
+      } catch (err) {
+        console.error("Error eliminando vocabulario:", err);
+      }
+    }
+  };
+
+  // 1. Autenticación en Firebase (Regla 3 estricta)
+  useEffect(() => {
+    if (!auth) {
+      setCompromisos(generarCompromisosIniciales());
+      setCargando(false);
+      return;
+    }
+
+    const initAuth = async () => {
+      try {
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+          await signInAnonymously(auth);
+        }
+      } catch (err) {
+        console.error("Error de autenticación:", err);
+        setCompromisos(generarCompromisosIniciales());
+        setCargando(false);
+      }
+    };
+
+    initAuth();
+
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // 2. Suscripción a Firestore (Reglas 1, 2 y 3 estrictas)
+  useEffect(() => {
+    if (!user || !db) return;
+
+    const colRef = collection(db, 'artifacts', appId, 'users', user.uid, 'compromisos');
+
+    const unsubscribe = onSnapshot(
+      colRef,
+      async (snapshot) => {
+        if (snapshot.empty) {
+          // Si es la primera vez del usuario, poblamos con ejemplos útiles
+          const iniciales = generarCompromisosIniciales();
+          setCompromisos(iniciales);
+          setCargando(false);
+          setSincronizadoNube(true);
+          try {
+            for (const item of iniciales) {
+              const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'compromisos', item.id);
+              await setDoc(docRef, item);
+            }
+          } catch (e) {
+            console.error("Error guardando datos iniciales:", e);
+          }
+        } else {
+          const lista = snapshot.docs.map((d) => ({
+            ...d.data(),
+            id: d.id
+          }));
+          setCompromisos(lista);
+          setCargando(false);
+          setSincronizadoNube(true);
+        }
+      },
+      (error) => {
+        console.error("Error en snapshot de Firestore:", error);
+        setCompromisos(generarCompromisosIniciales());
+        setCargando(false);
+      }
+    );
+
+    // Suscripción a la colección de vocabulario personalizado del usuario
+    const vocabRef = collection(db, 'artifacts', appId, 'users', user.uid, 'vocabulario');
+    const unsubscribeVocab = onSnapshot(
+      vocabRef,
+      async (snap) => {
+        if (snap.empty) {
+          setVocabulario(VOCABULARIO_INICIAL);
+          try {
+            for (const v of VOCABULARIO_INICIAL) {
+              const dRef = doc(db, 'artifacts', appId, 'users', user.uid, 'vocabulario', v.id);
+              await setDoc(dRef, v);
+            }
+          } catch (e) {}
+        } else {
+          setVocabulario(snap.docs.map((d) => ({ ...d.data(), id: d.id })));
+        }
+      },
+      (err) => {
+        console.error("Error en vocabulario Firestore:", err);
+      }
+    );
+
+    return () => {
+      unsubscribe();
+      unsubscribeVocab();
+    };
+  }, [user]);
+
+  // ==========================================
+  // OPERACIONES CRUD
+  // ==========================================
+  const abrirModalNuevo = (ambitoPredefinido = null, fechaPredefinida = null) => {
+    const ambitoElegido = ambitoPredefinido && AMBITOS[ambitoPredefinido] ? ambitoPredefinido : 'Arte y Video';
+    setCompromisoEditando(null);
+    setFormData({
+      titulo: '',
+      ambito: ambitoElegido,
+      subcategoria: AMBITOS[ambitoElegido].subcategorias[0],
+      fecha: fechaPredefinida || formatDateISO(new Date()),
+      horaInicio: '09:00',
+      horaFin: '10:30',
+      prioridad: 'Media',
+      notas: '',
+      completado: false
+    });
+    setModalAbierto(true);
+  };
+
+  const abrirModalEditar = (item) => {
+    setCompromisoEditando(item);
+    setFormData({
+      titulo: item.titulo || '',
+      ambito: item.ambito || 'Arte y Video',
+      subcategoria: item.subcategoria || AMBITOS[item.ambito || 'Arte y Video'].subcategorias[0],
+      fecha: item.fecha || formatDateISO(new Date()),
+      horaInicio: item.horaInicio || '09:00',
+      horaFin: item.horaFin || '10:00',
+      prioridad: item.prioridad || 'Media',
+      notas: item.notas || '',
+      completado: Boolean(item.completado)
+    });
+    setModalAbierto(true);
+  };
+
+  const guardarCompromiso = async (e) => {
+    e.preventDefault();
+    if (!formData.titulo.trim()) {
+      mostrarMensaje('Por favor ingresa un título para el compromiso', 'alerta');
+      return;
+    }
+
+    const id = compromisoEditando ? compromisoEditando.id : `comp-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const nuevoObjeto = {
+      ...formData,
+      titulo: formData.titulo.trim(),
+      id,
+      creadoEn: compromisoEditando ? compromisoEditando.creadoEn : Date.now(),
+      actualizadoEn: Date.now()
+    };
+
+    // Actualización optimista en estado local
+    if (compromisoEditando) {
+      setCompromisos((prev) => prev.map((c) => (c.id === id ? nuevoObjeto : c)));
+    } else {
+      setCompromisos((prev) => [...prev, nuevoObjeto]);
+    }
+
+    setModalAbierto(false);
+    mostrarMensaje(compromisoEditando ? 'Compromiso actualizado correctamente' : 'Nuevo compromiso agendado');
+
+    // Guardar en Firestore si está disponible
+    if (user && db) {
+      try {
+        const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'compromisos', id);
+        await setDoc(docRef, nuevoObjeto);
+      } catch (error) {
+        console.error("Error al guardar en Firestore:", error);
+        mostrarMensaje('Se guardó localmente (error de conexión)', 'alerta');
+      }
+    }
+  };
+
+  const alternarCompletado = async (item) => {
+    const actualizado = { ...item, completado: !item.completado, actualizadoEn: Date.now() };
+    setCompromisos((prev) => prev.map((c) => (c.id === item.id ? actualizado : c)));
+    mostrarMensaje(
+      actualizado.completado ? '¡Compromiso marcado como completado!' : 'Compromiso marcado como pendiente'
+    );
+
+    if (user && db) {
+      try {
+        const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'compromisos', item.id);
+        await setDoc(docRef, actualizado);
+      } catch (error) {
+        console.error("Error al actualizar estado:", error);
+      }
+    }
+  };
+
+  const eliminarCompromiso = async (id) => {
+    setCompromisos((prev) => prev.filter((c) => c.id !== id));
+    setConfirmarEliminarId(null);
+    mostrarMensaje('Compromiso eliminado de la agenda');
+
+    if (user && db) {
+      try {
+        const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'compromisos', id);
+        await deleteDoc(docRef);
+      } catch (error) {
+        console.error("Error al eliminar en Firestore:", error);
+      }
+    }
+  };
+
+  // ==========================================
+  // CÁLCULOS Y FILTROS EN MEMORIA
+  // ==========================================
+  const hoyISO = formatDateISO(new Date());
+
+  // Ordenar por fecha y luego por hora de inicio
+  const compromisosOrdenados = useMemo(() => {
+    return [...compromisos].sort((a, b) => {
+      if (a.fecha !== b.fecha) return a.fecha.localeCompare(b.fecha);
+      return (a.horaInicio || '00:00').localeCompare(b.horaInicio || '00:00');
+    });
+  }, [compromisos]);
+
+  // Compromisos filtrados para vistas
+  const compromisosFiltrados = useMemo(() => {
+    return compromisosOrdenados.filter((item) => {
+      const coincideAmbito = filtroAmbito === 'Todos' || item.ambito === filtroAmbito;
+      const coincideEstado =
+        filtroEstado === 'Todos' ||
+        (filtroEstado === 'Pendientes' && !item.completado) ||
+        (filtroEstado === 'Completados' && item.completado);
+      const textoBusqueda = busqueda.toLowerCase().trim();
+      const coincideBusqueda =
+        !textoBusqueda ||
+        item.titulo?.toLowerCase().includes(textoBusqueda) ||
+        item.subcategoria?.toLowerCase().includes(textoBusqueda) ||
+        item.notas?.toLowerCase().includes(textoBusqueda);
+
+      return coincideAmbito && coincideEstado && coincideBusqueda;
+    });
+  }, [compromisosOrdenados, filtroAmbito, filtroEstado, busqueda]);
+
+  // Estadísticas y resúmenes
+  const estadisticas = useMemo(() => {
+    const total = compromisos.length;
+    const pendientes = compromisos.filter((c) => !c.completado).length;
+    const completados = compromisos.filter((c) => c.completado).length;
+    const deHoy = compromisosOrdenados.filter((c) => c.fecha === hoyISO);
+
+    const porAmbito = {
+      'Arte y Video': {
+        total: compromisos.filter((c) => c.ambito === 'Arte y Video').length,
+        pendientes: compromisos.filter((c) => c.ambito === 'Arte y Video' && !c.completado).length
+      },
+      'Preparatoria Lázaro Cárdenas': {
+        total: compromisos.filter((c) => c.ambito === 'Preparatoria Lázaro Cárdenas').length,
+        pendientes: compromisos.filter((c) => c.ambito === 'Preparatoria Lázaro Cárdenas' && !c.completado).length
+      },
+      'Personal': {
+        total: compromisos.filter((c) => c.ambito === 'Personal').length,
+        pendientes: compromisos.filter((c) => c.ambito === 'Personal' && !c.completado).length
+      }
+    };
+
+    return { total, pendientes, completados, deHoy, porAmbito };
+  }, [compromisos, compromisosOrdenados, hoyISO]);
+
+  // ==========================================
+  // UTILIDADES DE CALENDARIO
+  // ==========================================
+  const nombresMeses = [
+    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+  ];
+  const diasSemanaCorto = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+
+  const obtenerDiasDelMes = (fechaBase) => {
+    const year = fechaBase.getFullYear();
+    const month = fechaBase.getMonth();
+    const primerDiaMes = new Date(year, month, 1);
+    const ultimoDiaMes = new Date(year, month + 1, 0);
+
+    const dias = [];
+    const offsetInicio = primerDiaMes.getDay(); // 0 (Dom) a 6 (Sáb)
+
+    // Días del mes anterior para completar cuadrícula
+    for (let i = offsetInicio - 1; i >= 0; i--) {
+      const d = new Date(year, month, -i);
+      dias.push({ fechaObj: d, iso: formatDateISO(d), esMesActual: false });
+    }
+
+    // Días del mes actual
+    for (let d = 1; d <= ultimoDiaMes.getDate(); d++) {
+      const dateObj = new Date(year, month, d);
+      dias.push({ fechaObj: dateObj, iso: formatDateISO(dateObj), esMesActual: true });
+    }
+
+    // Días del mes siguiente hasta completar 42 celdas (6 semanas)
+    const restantes = 42 - dias.length;
+    for (let i = 1; i <= restantes; i++) {
+      const d = new Date(year, month + 1, i);
+      dias.push({ fechaObj: d, iso: formatDateISO(d), esMesActual: false });
+    }
+
+    return dias;
+  };
+
+  const obtenerDiasDeLaSemana = (fechaBase) => {
+    const start = new Date(fechaBase);
+    const day = start.getDay();
+    start.setDate(start.getDate() - day); // Domingo como inicio de semana
+
+    const dias = [];
+    for (let i = 0; i < 7; i++) {
+      const d = addDays(start, i);
+      dias.push({ fechaObj: d, iso: formatDateISO(d), esMesActual: true });
+    }
+    return dias;
+  };
+
+  const navegarCalendario = (direccion) => {
+    const nueva = new Date(fechaCursor);
+    if (modoCalendario === 'mes') {
+      nueva.setMonth(nueva.getMonth() + direccion);
+    } else {
+      nueva.setDate(nueva.getDate() + direccion * 7);
+    }
+    setFechaCursor(nueva);
+  };
+
+  const irAHoy = () => {
+    const ahora = new Date();
+    setFechaCursor(ahora);
+    setDiaSeleccionado(formatDateISO(ahora));
+  };
+
+  const formatearFechaHumana = (isoStr) => {
+    if (!isoStr) return '';
+    const [y, m, d] = isoStr.split('-').map(Number);
+    const dateObj = new Date(y, m - 1, d);
+    return dateObj.toLocaleDateString('es-MX', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long'
+    });
+  };
+
+  // ==========================================
+  // SUBCOMPONENTES DE TARJETA DE COMPROMISO
+  // ==========================================
+  const TarjetaCompromiso = ({ item, compacta = false }) => {
+    const configAmbito = AMBITOS[item.ambito] || AMBITOS['Personal'];
+    const IconoAmbito = configAmbito.icon;
+    const configPrioridad = PRIORIDADES[item.prioridad] || PRIORIDADES['Media'];
+
+    return (
+      <div
+        className={`group relative rounded-2xl border p-4 transition-all duration-200 hover:shadow-md ${
+          item.completado
+            ? 'bg-slate-50/70 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 opacity-75'
+            : 'bg-white dark:bg-slate-900 border-slate-200/90 dark:border-slate-800'
+        }`}
+      >
+        {/* Barra lateral de color de ámbito */}
+        <div
+          className={`absolute left-0 top-3 bottom-3 w-1.5 rounded-r-full ${configAmbito.dotClass}`}
+        />
+
+        <div className="pl-2.5 flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3 flex-1 min-w-0">
+            <button
+              onClick={() => alternarCompletado(item)}
+              title={item.completado ? 'Marcar como pendiente' : 'Marcar como completado'}
+              className="mt-0.5 flex-shrink-0 text-slate-400 hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors"
+            >
+              {item.completado ? (
+                <CheckCircle2 className="w-6 h-6 text-emerald-500" />
+              ) : (
+                <Circle className="w-6 h-6" />
+              )}
+            </button>
+
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-2 mb-1">
+                <span
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${configAmbito.badgeClass}`}
+                >
+                  <IconoAmbito className="w-3.5 h-3.5" />
+                  {configAmbito.nombre}
+                </span>
+
+                {item.subcategoria && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                    <Tag className="w-3 h-3" />
+                    {item.subcategoria}
+                  </span>
+                )}
+
+                <span
+                  className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium border ${configPrioridad.color}`}
+                >
+                  Prioridad {item.prioridad}
+                </span>
+              </div>
+
+              <h4
+                className={`text-base font-semibold leading-snug break-words ${
+                  item.completado
+                    ? 'line-through text-slate-400 dark:text-slate-500'
+                    : 'text-slate-900 dark:text-slate-100'
+                }`}
+              >
+                {item.titulo}
+              </h4>
+
+              {!compacta && item.notas && (
+                <p className="mt-1.5 text-sm text-slate-600 dark:text-slate-400 line-clamp-2">
+                  {item.notas}
+                </p>
+              )}
+
+              <div className="mt-2.5 flex flex-wrap items-center gap-4 text-xs text-slate-500 dark:text-slate-400">
+                <span className="inline-flex items-center gap-1.5 font-medium">
+                  <CalendarIcon className="w-3.5 h-3.5 text-slate-400" />
+                  <span className="capitalize">{formatearFechaHumana(item.fecha)}</span>
+                  {item.fecha === hoyISO && (
+                    <span className="ml-1 px-1.5 py-0.2 bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 rounded text-[10px] font-bold uppercase">
+                      Hoy
+                    </span>
+                  )}
+                </span>
+
+                <span className="inline-flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-slate-400" />
+                  {item.horaInicio} - {item.horaFin} hrs
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Acciones de editar / eliminar */}
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <button
+              onClick={() => abrirModalEditar(item)}
+              className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              title="Editar compromiso"
+            >
+              <Edit3 className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setConfirmarEliminarId(item.id)}
+              className="p-2 rounded-xl text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+              title="Eliminar compromiso"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // ==========================================
+  // RENDERIZADO PRINCIPAL
+  // ==========================================
+  return (
+    <div className={darkMode ? 'dark' : ''}>
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200 flex flex-col">
+        
+        {/* Notificación Flotante */}
+        {notificacion && (
+          <div className="fixed bottom-5 right-5 z-50 flex items-center gap-2.5 px-4 py-3 rounded-2xl shadow-xl border bg-slate-900 dark:bg-white text-white dark:text-slate-900 border-slate-700 dark:border-slate-200 animate-bounce">
+            <Check className="w-4 h-4 text-emerald-400 dark:text-emerald-600" />
+            <span className="text-sm font-medium">{notificacion.texto}</span>
+          </div>
+        )}
+
+        {/* BARRA DE NAVEGACIÓN SUPERIOR */}
+        <header className="sticky top-0 z-30 backdrop-blur-md bg-white/85 dark:bg-slate-900/85 border-b border-slate-200 dark:border-slate-800">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+            {/* Logo y Título */}
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-amber-500 via-indigo-600 to-emerald-500 p-0.5 shadow-md">
+                <div className="w-full h-full bg-white dark:bg-slate-900 rounded-[14px] flex items-center justify-center">
+                  <Sparkles className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                </div>
+              </div>
+              <div>
+                <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white leading-none">
+                  Mi Agenda Integral
+                </h1>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 hidden sm:block">
+                  Arte y Video • Prepa Lázaro Cárdenas • Personal
+                </p>
+              </div>
+            </div>
+
+            {/* Selector de Vistas Central */}
+            <nav className="flex items-center bg-slate-100 dark:bg-slate-800/90 p-1 rounded-2xl border border-slate-200/60 dark:border-slate-700/60">
+              <button
+                onClick={() => setVistaActiva('dashboard')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition-all ${
+                  vistaActiva === 'dashboard'
+                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <LayoutDashboard className="w-4 h-4" />
+                <span>Resumen</span>
+              </button>
+
+              <button
+                onClick={() => setVistaActiva('calendario')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition-all ${
+                  vistaActiva === 'calendario'
+                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <CalendarIcon className="w-4 h-4" />
+                <span>Calendario</span>
+              </button>
+
+              <button
+                onClick={() => setVistaActiva('lista')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition-all ${
+                  vistaActiva === 'lista'
+                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <ListTodo className="w-4 h-4" />
+                <span>Compromisos</span>
+              </button>
+            </nav>
+
+            {/* Botones de Acción Derecha */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setDarkMode(!darkMode)}
+                className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                title={darkMode ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+              >
+                {darkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
+              </button>
+
+              <button
+                onClick={() => {
+                  setPropuestaVoz(null);
+                  setTabModalVoz('dictar');
+                  setModalVozAbierto(true);
+                }}
+                className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl font-semibold text-xs sm:text-sm bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-600 hover:to-amber-600 text-white shadow-sm hover:shadow transition-all"
+                title="Dictado Rápido por Voz Inteligente (es-MX)"
+              >
+                <Mic className="w-4 h-4 animate-pulse" />
+                <span className="hidden md:inline">Dictar por Voz</span>
+              </button>
+
+              <button
+                onClick={() => abrirModalNuevo()}
+                className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl font-semibold text-xs sm:text-sm bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm hover:shadow transition-all"
+              >
+                <Plus className="w-4 h-4" />
+                <span className="hidden sm:inline">Nuevo</span>
+              </button>
+            </div>
+          </div>
+        </header>
+
+        {/* CONTENIDO PRINCIPAL */}
+        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+          {/* BANNER DE DICTADO DE VOZ PERSONALIZADO E INTELIGENTE */}
+          <section className="relative overflow-hidden rounded-3xl border border-indigo-200/80 dark:border-indigo-900/60 bg-gradient-to-r from-indigo-950 via-slate-900 to-amber-950 text-white p-5 sm:p-6 shadow-lg">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div className="space-y-1.5 max-w-2xl">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/15 text-xs font-semibold text-amber-300">
+                  <Mic className="w-3.5 h-3.5 text-rose-400" />
+                  <span>Reconocimiento de Voz Personalizado (es-MX) + IA</span>
+                </div>
+                <h2 className="text-lg sm:text-xl font-bold tracking-tight">
+                  Agenda hablando con naturalidad en tus 3 ámbitos
+                </h2>
+                <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                  Reconoce automáticamente tus términos frecuentes como{' '}
+                  {vocabulario.slice(0, 5).map((v) => (
+                    <span
+                      key={v.id}
+                      className="inline-block mx-0.5 px-2 py-0.5 rounded-md bg-white/10 text-amber-200 font-medium text-xs"
+                    >
+                      {v.termino}
+                    </span>
+                  ))}{' '}
+                  y clasifica ámbito, fecha, horario y prioridad.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2.5 flex-shrink-0">
+                <button
+                  onClick={() => {
+                    setPropuestaVoz(null);
+                    setTabModalVoz('dictar');
+                    setModalVozAbierto(true);
+                  }}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white text-slate-900 hover:bg-amber-50 font-bold text-xs sm:text-sm shadow-md transition-all"
+                >
+                  <Mic className="w-4 h-4 text-rose-600" />
+                  Iniciar Dictado Inteligente
+                </button>
+                <button
+                  onClick={() => {
+                    setTabModalVoz('vocabulario');
+                    setModalVozAbierto(true);
+                  }}
+                  className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/15 text-white font-semibold text-xs sm:text-sm transition-all"
+                >
+                  <BookOpen className="w-4 h-4 text-amber-300" />
+                  Mi Vocabulario ({vocabulario.length})
+                </button>
+              </div>
+            </div>
+          </section>
+          
+          {/* FILTROS RÁPIDOS DE LOS 3 ÁMBITOS (Siempre visibles para cambiar de enfoque) */}
+          <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+            {/* Tarjeta Todos los Ámbitos */}
+            <button
+              onClick={() => setFiltroAmbito('Todos')}
+              className={`text-left p-4 rounded-2xl border transition-all flex items-center justify-between ${
+                filtroAmbito === 'Todos'
+                  ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 border-slate-900 dark:border-white shadow-md'
+                  : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+              }`}
+            >
+              <div>
+                <p className={`text-xs font-medium uppercase tracking-wider ${filtroAmbito === 'Todos' ? 'text-slate-300 dark:text-slate-600' : 'text-slate-500 dark:text-slate-400'}`}>
+                  Vista Global
+                </p>
+                <h3 className="text-lg font-bold mt-0.5">Todos los Ámbitos</h3>
+                <p className={`text-xs mt-1 ${filtroAmbito === 'Todos' ? 'text-slate-300 dark:text-slate-600' : 'text-slate-500 dark:text-slate-400'}`}>
+                  {estadisticas.pendientes} pendientes de {estadisticas.total}
+                </p>
+              </div>
+              <div className={`w-11 h-11 rounded-2xl flex items-center justify-center ${filtroAmbito === 'Todos' ? 'bg-white/15 dark:bg-slate-900/10' : 'bg-slate-100 dark:bg-slate-800'}`}>
+                <BarChart3 className="w-5 h-5" />
+              </div>
+            </button>
+
+            {/* Tarjetas de cada uno de los 3 Ámbitos */}
+            {Object.values(AMBITOS).map((amb) => {
+              const Icono = amb.icon;
+              const activo = filtroAmbito === amb.id;
+              const stats = estadisticas.porAmbito[amb.id] || { total: 0, pendientes: 0 };
+
+              return (
+                <div
+                  key={amb.id}
+                  onClick={() => setFiltroAmbito(activo ? 'Todos' : amb.id)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => e.key === 'Enter' && setFiltroAmbito(activo ? 'Todos' : amb.id)}
+                  className={`cursor-pointer p-4 rounded-2xl border transition-all flex flex-col justify-between ${
+                    activo
+                      ? `${amb.bgLight} ${amb.borderLight} ring-2 ring-offset-2 dark:ring-offset-slate-950`
+                      : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+                  }`}
+                  style={activo ? { '--tw-ring-color': amb.colorHex } : {}}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <span className={`inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider ${amb.textClass}`}>
+                        <span className={`w-2 h-2 rounded-full ${amb.dotClass}`} />
+                        Ámbito
+                      </span>
+                      <h3 className="text-base font-bold text-slate-900 dark:text-white truncate mt-0.5">
+                        {amb.nombre}
+                      </h3>
+                    </div>
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${amb.bgLight} ${amb.textClass}`}>
+                      <Icono className="w-5 h-5" />
+                    </div>
+                  </div>
+
+                  <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs">
+                    <span className="font-medium text-slate-600 dark:text-slate-300">
+                      <strong>{stats.pendientes}</strong> pendientes
+                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        abrirModalNuevo(amb.id);
+                      }}
+                      className={`inline-flex items-center gap-1 font-semibold hover:underline ${amb.textClass}`}
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Agendar aquí
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </section>
+
+          {/* ==========================================
+              VISTA 1: DASHBOARD / RESUMEN
+             ========================================== */}
+          {vistaActiva === 'dashboard' && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              
+              {/* Columna Izquierda y Central: Agenda de Hoy y Próximos */}
+              <div className="lg:col-span-2 space-y-6">
+                
+                {/* Bloque de Compromisos de Hoy */}
+                <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-5 sm:p-6 shadow-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+                    <div>
+                      <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+                        Enfoque del Día
+                      </span>
+                      <h2 className="text-xl font-bold text-slate-900 dark:text-white capitalize">
+                        Hoy, {formatearFechaHumana(hoyISO)}
+                      </h2>
+                    </div>
+                    <button
+                      onClick={() => abrirModalNuevo(filtroAmbito !== 'Todos' ? filtroAmbito : null, hoyISO)}
+                      className="text-xs font-semibold px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors flex items-center gap-1.5"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Agregar para hoy
+                    </button>
+                  </div>
+
+                  {estadisticas.deHoy.filter((c) => filtroAmbito === 'Todos' || c.ambito === filtroAmbito).length === 0 ? (
+                    <div className="text-center py-10 px-4 rounded-2xl bg-slate-50 dark:bg-slate-950/50 border border-dashed border-slate-200 dark:border-slate-800">
+                      <CalendarIcon className="w-10 h-10 text-slate-400 mx-auto mb-2 stroke-1" />
+                      <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                        No tienes compromisos registrados para hoy {filtroAmbito !== 'Todos' ? `en ${filtroAmbito}` : ''}.
+                      </p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                        Aprovecha para adelantar proyectos o descansar.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {estadisticas.deHoy
+                        .filter((c) => filtroAmbito === 'Todos' || c.ambito === filtroAmbito)
+                        .map((item) => (
+                          <TarjetaCompromiso key={item.id} item={item} />
+                        ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Bloque de Próximos Compromisos Pendientes */}
+                <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-5 sm:p-6 shadow-sm">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                        Próximos Compromisos y Pendientes
+                      </h3>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        Ordenados cronológicamente para que nada se te pase
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setVistaActiva('lista')}
+                      className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
+                    >
+                      Ver todos ({compromisosFiltrados.length})
+                    </button>
+                  </div>
+
+                  <div className="space-y-3">
+                    {compromisosFiltrados.filter((c) => !c.completado && c.fecha !== hoyISO).slice(0, 5).length === 0 ? (
+                      <p className="text-sm text-slate-500 dark:text-slate-400 py-6 text-center">
+                        No hay más compromisos futuros pendientes con el filtro actual.
+                      </p>
+                    ) : (
+                      compromisosFiltrados
+                        .filter((c) => !c.completado && c.fecha !== hoyISO)
+                        .slice(0, 5)
+                        .map((item) => <TarjetaCompromiso key={item.id} item={item} />)
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Columna Derecha: Balance de Vida y Accesos Rápidos por Ámbito */}
+              <div className="space-y-6">
+                
+                {/* Balance de Carga entre los 3 Ámbitos */}
+                <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-5 sm:p-6 shadow-sm">
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <BarChart3 className="w-5 h-5 text-indigo-500" />
+                    Equilibrio de tus 3 Ámbitos
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    Distribución de tus compromisos actuales
+                  </p>
+
+                  <div className="mt-5 space-y-4">
+                    {Object.values(AMBITOS).map((amb) => {
+                      const totalAmbito = estadisticas.porAmbito[amb.id]?.total || 0;
+                      const porcentaje = estadisticas.total > 0 ? Math.round((totalAmbito / estadisticas.total) * 100) : 0;
+
+                      return (
+                        <div key={amb.id} className="space-y-1.5">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-semibold text-slate-700 dark:text-slate-200">
+                              {amb.nombre}
+                            </span>
+                            <span className="text-slate-500 dark:text-slate-400 font-medium">
+                              {totalAmbito} ({porcentaje}%)
+                            </span>
+                          </div>
+                          <div className="w-full h-2.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all duration-500 ${amb.dotClass}`}
+                              style={{ width: `${porcentaje}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Resumen de Cumplimiento */}
+                  <div className="mt-6 pt-5 border-t border-slate-100 dark:border-slate-800 grid grid-cols-2 gap-3 text-center">
+                    <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50">
+                      <span className="text-2xl font-extrabold text-amber-500">
+                        {estadisticas.pendientes}
+                      </span>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        Por Realizar
+                      </p>
+                    </div>
+                    <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50">
+                      <span className="text-2xl font-extrabold text-emerald-500">
+                        {estadisticas.completados}
+                      </span>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        Completados
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Plantillas Rápidas de Creación */}
+                <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-5 sm:p-6 shadow-sm">
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    Agendado Rápido por Actividad
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 mb-4">
+                    Inicia un compromiso con la categoría lista
+                  </p>
+
+                  <div className="space-y-2.5">
+                    <button
+                      onClick={() => {
+                        abrirModalNuevo('Arte y Video');
+                        setFormData((f) => ({ ...f, subcategoria: 'Sesión Fotográfica', titulo: 'Sesión Fotográfica: ' }));
+                      }}
+                      className="w-full flex items-center justify-between p-3 rounded-2xl border border-amber-200/80 dark:border-amber-800/50 bg-amber-50/50 dark:bg-amber-950/30 hover:bg-amber-100/70 dark:hover:bg-amber-900/40 transition-colors text-left"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Camera className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                        <div>
+                          <p className="text-xs font-bold text-slate-900 dark:text-slate-100">Sesión de Foto o Video</p>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400">Arte y Video</p>
+                        </div>
+                      </div>
+                      <Plus className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        abrirModalNuevo('Preparatoria Lázaro Cárdenas');
+                        setFormData((f) => ({ ...f, subcategoria: 'Radio Escolar 95.1 FM', titulo: 'Radio 95.1 FM: ' }));
+                      }}
+                      className="w-full flex items-center justify-between p-3 rounded-2xl border border-indigo-200/80 dark:border-indigo-800/50 bg-indigo-50/50 dark:bg-indigo-950/30 hover:bg-indigo-100/70 dark:hover:bg-indigo-900/40 transition-colors text-left"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Radio className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                        <div>
+                          <p className="text-xs font-bold text-slate-900 dark:text-slate-100">Programa / Taller Radio 95.1 FM</p>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400">Prepa Lázaro Cárdenas</p>
+                        </div>
+                      </div>
+                      <Plus className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        abrirModalNuevo('Preparatoria Lázaro Cárdenas');
+                        setFormData((f) => ({ ...f, subcategoria: 'Clase Frente a Grupo', titulo: 'Clase / Taller: ' }));
+                      }}
+                      className="w-full flex items-center justify-between p-3 rounded-2xl border border-indigo-200/80 dark:border-indigo-800/50 bg-indigo-50/50 dark:bg-indigo-950/30 hover:bg-indigo-100/70 dark:hover:bg-indigo-900/40 transition-colors text-left"
+                    >
+                      <div className="flex items-center gap-3">
+                        <GraduationCap className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                        <div>
+                          <p className="text-xs font-bold text-slate-900 dark:text-slate-100">Actividad Docente / Proyecto</p>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400">Prepa Lázaro Cárdenas</p>
+                        </div>
+                      </div>
+                      <Plus className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        abrirModalNuevo('Personal');
+                        setFormData((f) => ({ ...f, subcategoria: 'Familia y Hogar', titulo: '' }));
+                      }}
+                      className="w-full flex items-center justify-between p-3 rounded-2xl border border-emerald-200/80 dark:border-emerald-800/50 bg-emerald-50/50 dark:bg-emerald-950/30 hover:bg-emerald-100/70 dark:hover:bg-emerald-900/40 transition-colors text-left"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Home className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                        <div>
+                          <p className="text-xs font-bold text-slate-900 dark:text-slate-100">Compromiso Familiar o Personal</p>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400">Personal</p>
+                        </div>
+                      </div>
+                      <Plus className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ==========================================
+              VISTA 2: CALENDARIO MENSUAL Y SEMANAL
+             ========================================== */}
+          {vistaActiva === 'calendario' && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              
+              {/* Cuadrícula del Calendario */}
+              <div className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-4 sm:p-6 shadow-sm">
+                {/* Cabecera del Calendario */}
+                <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+                  <div className="flex items-center gap-3">
+                    <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+                      {nombresMeses[fechaCursor.getMonth()]} {fechaCursor.getFullYear()}
+                    </h2>
+                    <button
+                      onClick={irAHoy}
+                      className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200"
+                    >
+                      Hoy
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {/* Selector Mes / Semana */}
+                    <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+                      <button
+                        onClick={() => setModoCalendario('mes')}
+                        className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                          modoCalendario === 'mes'
+                            ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
+                            : 'text-slate-500'
+                        }`}
+                      >
+                        Mes
+                      </button>
+                      <button
+                        onClick={() => setModoCalendario('semana')}
+                        className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                          modoCalendario === 'semana'
+                            ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
+                            : 'text-slate-500'
+                        }`}
+                      >
+                        Semana
+                      </button>
+                    </div>
+
+                    {/* Botones Anterior / Siguiente */}
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => navegarCalendario(-1)}
+                        className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => navegarCalendario(1)}
+                        className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Cabecera de días de la semana */}
+                <div className="grid grid-cols-7 gap-1 text-center mb-2">
+                  {diasSemanaCorto.map((d) => (
+                    <div key={d} className="text-xs font-bold uppercase text-slate-400 dark:text-slate-500 py-1">
+                      {d}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Celdas de días */}
+                <div className="grid grid-cols-7 gap-1.5">
+                  {(modoCalendario === 'mes' ? obtenerDiasDelMes(fechaCursor) : obtenerDiasDeLaSemana(fechaCursor)).map(
+                    (dia, idx) => {
+                      const eventosDia = compromisosFiltrados.filter((c) => c.fecha === dia.iso);
+                      const esHoy = dia.iso === hoyISO;
+                      const esSeleccionado = dia.iso === diaSeleccionado;
+
+                      return (
+                        <button
+                          key={idx}
+                          onClick={() => setDiaSeleccionado(dia.iso)}
+                          className={`group relative flex flex-col items-start justify-between p-2 rounded-2xl border text-left transition-all ${
+                            modoCalendario === 'semana' ? 'min-h-[140px]' : 'min-h-[82px] sm:min-h-[96px]'
+                          } ${
+                            esSeleccionado
+                              ? 'border-indigo-600 dark:border-indigo-400 bg-indigo-50/40 dark:bg-indigo-950/30 ring-2 ring-indigo-500/20'
+                              : dia.esMesActual
+                              ? 'border-slate-200/70 dark:border-slate-800/80 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700'
+                              : 'border-transparent bg-slate-50/50 dark:bg-slate-950/40 text-slate-400 dark:text-slate-600'
+                          }`}
+                        >
+                          <div className="w-full flex items-center justify-between">
+                            <span
+                              className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
+                                esHoy
+                                  ? 'bg-indigo-600 text-white'
+                                  : esSeleccionado
+                                  ? 'text-indigo-600 dark:text-indigo-400'
+                                  : ''
+                              }`}
+                            >
+                              {dia.fechaObj.getDate()}
+                            </span>
+                            {eventosDia.length > 0 && (
+                              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                                {eventosDia.length}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Puntos o mini etiquetas de eventos */}
+                          <div className="w-full mt-1.5 space-y-1 overflow-hidden">
+                            {eventosDia.slice(0, modoCalendario === 'semana' ? 4 : 2).map((ev) => {
+                              const amb = AMBITOS[ev.ambito] || AMBITOS['Personal'];
+                              return (
+                                <div
+                                  key={ev.id}
+                                  className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] truncate font-medium ${amb.badgeClass} ${
+                                    ev.completado ? 'opacity-50 line-through' : ''
+                                  }`}
+                                >
+                                  <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${amb.dotClass}`} />
+                                  <span className="truncate">{ev.titulo}</span>
+                                </div>
+                              );
+                            })}
+                            {eventosDia.length > (modoCalendario === 'semana' ? 4 : 2) && (
+                              <div className="text-[10px] text-slate-400 font-medium pl-1">
+                                +{eventosDia.length - (modoCalendario === 'semana' ? 4 : 2)} más
+                              </div>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    }
+                  )}
+                </div>
+              </div>
+
+              {/* Detalle del Día Seleccionado */}
+              <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-5 sm:p-6 shadow-sm flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between gap-2 pb-4 border-b border-slate-100 dark:border-slate-800">
+                    <div>
+                      <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+                        Día Seleccionado
+                      </span>
+                      <h3 className="text-lg font-bold text-slate-900 dark:text-white capitalize mt-0.5">
+                        {formatearFechaHumana(diaSeleccionado)}
+                      </h3>
+                    </div>
+                    <button
+                      onClick={() => abrirModalNuevo(filtroAmbito !== 'Todos' ? filtroAmbito : null, diaSeleccionado)}
+                      className="p-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
+                      title="Agendar en esta fecha"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="mt-4 space-y-3 max-h-[500px] overflow-y-auto pr-1">
+                    {compromisosFiltrados.filter((c) => c.fecha === diaSeleccionado).length === 0 ? (
+                      <div className="text-center py-12 px-4">
+                        <Clock className="w-9 h-9 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
+                        <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                          Día libre de compromisos
+                        </p>
+                        <button
+                          onClick={() => abrirModalNuevo(filtroAmbito !== 'Todos' ? filtroAmbito : null, diaSeleccionado)}
+                          className="mt-3 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
+                        >
+                          + Añadir compromiso en este día
+                        </button>
+                      </div>
+                    ) : (
+                      compromisosFiltrados
+                        .filter((c) => c.fecha === diaSeleccionado)
+                        .map((item) => <TarjetaCompromiso key={item.id} item={item} compacta />)
+                    )}
+                  </div>
+                </div>
+
+                {/* Leyenda de Colores */}
+                <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+                  {Object.values(AMBITOS).map((amb) => (
+                    <div key={amb.id} className="flex items-center gap-1.5">
+                      <span className={`w-2.5 h-2.5 rounded-full ${amb.dotClass}`} />
+                      <span>{amb.nombre}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ==========================================
+              VISTA 3: LISTA DETALLADA Y BUSCADOR
+             ========================================== */}
+          {vistaActiva === 'lista' && (
+            <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-5 sm:p-6 shadow-sm space-y-5">
+              
+              {/* Barra de Búsqueda y Filtros de Estado */}
+              <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+                {/* Input de Búsqueda */}
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={busqueda}
+                    onChange={(e) => setBusqueda(e.target.value)}
+                    placeholder="Buscar por título, Radio 95.1, sesión fotográfica, notas..."
+                    className="w-full pl-10 pr-9 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                  {busqueda && (
+                    <button
+                      onClick={() => setBusqueda('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Filtro de Estado */}
+                <div className="flex items-center gap-2">
+                  <Filter className="w-4 h-4 text-slate-400 hidden sm:block" />
+                  <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl w-full sm:w-auto">
+                    {['Todos', 'Pendientes', 'Completados'].map((estado) => (
+                      <button
+                        key={estado}
+                        onClick={() => setFiltroEstado(estado)}
+                        className={`flex-1 sm:flex-initial px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                          filtroEstado === estado
+                            ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
+                            : 'text-slate-600 dark:text-slate-400'
+                        }`}
+                      >
+                        {estado}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Lista de Resultados */}
+              {compromisosFiltrados.length === 0 ? (
+                <div className="text-center py-14 px-4 rounded-2xl bg-slate-50 dark:bg-slate-950/40 border border-dashed border-slate-200 dark:border-slate-800">
+                  <ListTodo className="w-10 h-10 text-slate-400 mx-auto mb-2 stroke-1" />
+                  <p className="text-base font-semibold text-slate-700 dark:text-slate-300">
+                    No se encontraron compromisos con estos filtros
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    Intenta cambiar el ámbito seleccionado o limpiar la búsqueda.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setFiltroAmbito('Todos');
+                      setFiltroEstado('Todos');
+                      setBusqueda('');
+                    }}
+                    className="mt-4 px-4 py-2 rounded-xl text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700"
+                  >
+                    Restablecer filtros
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {compromisosFiltrados.map((item) => (
+                    <TarjetaCompromiso key={item.id} item={item} />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </main>
+
+        {/* ==========================================
+            MODAL CREAR / EDITAR COMPROMISO
+           ========================================== */}
+        {modalAbierto && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm overflow-y-auto">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-lg w-full p-6 shadow-2xl my-8">
+              <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                  {compromisoEditando ? 'Editar Compromiso' : 'Nuevo Compromiso'}
+                </h3>
+                <button
+                  onClick={() => setModalAbierto(false)}
+                  className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={guardarCompromiso} className="mt-4 space-y-4">
+                {/* Selección de Ámbito */}
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
+                    1. Selecciona el Ámbito
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    {Object.values(AMBITOS).map((amb) => {
+                      const Icono = amb.icon;
+                      const seleccionado = formData.ambito === amb.id;
+                      return (
+                        <button
+                          key={amb.id}
+                          type="button"
+                          onClick={() =>
+                            setFormData({
+                              ...formData,
+                              ambito: amb.id,
+                              subcategoria: AMBITOS[amb.id].subcategorias[0]
+                            })
+                          }
+                          className={`flex items-center gap-2 p-2.5 rounded-xl border text-left transition-all ${
+                            seleccionado
+                              ? `${amb.bgLight} ${amb.borderLight} ${amb.textClass} font-bold ring-2 ring-offset-1 dark:ring-offset-slate-900`
+                              : 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                          }`}
+                          style={seleccionado ? { '--tw-ring-color': amb.colorHex } : {}}
+                        >
+                          <Icono className="w-4 h-4 flex-shrink-0" />
+                          <span className="text-xs truncate">{amb.nombre}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Título del Compromiso con Micrófono Directo */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      Título o Actividad *
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => alternarReconocimientoVoz('titulo')}
+                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                        escuchandoVoz && campoDictadoActivo === 'titulo'
+                          ? 'bg-rose-600 text-white animate-pulse'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 hover:text-indigo-600'
+                      }`}
+                      title="Dictar título por voz"
+                    >
+                      {escuchandoVoz && campoDictadoActivo === 'titulo' ? (
+                        <>
+                          <MicOff className="w-3.5 h-3.5" /> Escuchando...
+                        </>
+                      ) : (
+                        <>
+                          <Mic className="w-3.5 h-3.5 text-rose-500" /> Dictar título
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    value={formData.titulo}
+                    onChange={(e) => setFormData({ ...formData, titulo: aplicarVocabularioPersonalizado(e.target.value) })}
+                    placeholder="Ej. Sesión de retrato en Vértice, Cápsula Radio 95.1 FM Fuerza Puma..."
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                {/* Subcategoría y Prioridad */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+                      Categoría / Etiqueta
+                    </label>
+                    <select
+                      value={formData.subcategoria}
+                      onChange={(e) => setFormData({ ...formData, subcategoria: e.target.value })}
+                      className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                      {(AMBITOS[formData.ambito]?.subcategorias || []).map((sub) => (
+                        <option key={sub} value={sub}>
+                          {sub}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+                      Nivel de Prioridad
+                    </label>
+                    <select
+                      value={formData.prioridad}
+                      onChange={(e) => setFormData({ ...formData, prioridad: e.target.value })}
+                      className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                      <option value="Alta">Alta (Urgente / Importante)</option>
+                      <option value="Media">Media (Normal)</option>
+                      <option value="Baja">Baja (Flexible)</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Fecha y Horario */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+                      Fecha
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={formData.fecha}
+                      onChange={(e) => setFormData({ ...formData, fecha: e.target.value })}
+                      className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+                      Hora Inicio
+                    </label>
+                    <input
+                      type="time"
+                      required
+                      value={formData.horaInicio}
+                      onChange={(e) => setFormData({ ...formData, horaInicio: e.target.value })}
+                      className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+                      Hora Fin
+                    </label>
+                    <input
+                      type="time"
+                      required
+                      value={formData.horaFin}
+                      onChange={(e) => setFormData({ ...formData, horaFin: e.target.value })}
+                      className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Notas Adicionales con Micrófono Directo */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      Notas o Detalles
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => alternarReconocimientoVoz('notas')}
+                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                        escuchandoVoz && campoDictadoActivo === 'notas'
+                          ? 'bg-rose-600 text-white animate-pulse'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 hover:text-indigo-600'
+                      }`}
+                      title="Dictar notas por voz"
+                    >
+                      {escuchandoVoz && campoDictadoActivo === 'notas' ? (
+                        <>
+                          <MicOff className="w-3.5 h-3.5" /> Escuchando...
+                        </>
+                      ) : (
+                        <>
+                          <Mic className="w-3.5 h-3.5 text-rose-500" /> Dictar notas
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  <textarea
+                    rows={3}
+                    value={formData.notas}
+                    onChange={(e) => setFormData({ ...formData, notas: aplicarVocabularioPersonalizado(e.target.value) })}
+                    placeholder="Equipo necesario, acuerdos con clientes, detalles para Radio 95.1 FM o Taller de Medios..."
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                {/* Botones del Modal */}
+                <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setModalAbierto(false)}
+                    className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2.5 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shadow-md transition-all"
+                  >
+                    {compromisoEditando ? 'Guardar Cambios' : 'Agendar Compromiso'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* ==========================================
+            MODAL DE DICTADO DE VOZ PERSONALIZADO E INTELIGENTE
+           ========================================== */}
+        {modalVozAbierto && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm overflow-y-auto">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-2xl w-full p-6 shadow-2xl my-8">
+              
+              {/* Encabezado y Pestañas */}
+              <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-rose-500 to-amber-500 text-white flex items-center justify-center shadow-md">
+                    <Mic className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white leading-tight">
+                      Dictado de Voz Personalizado (es-MX)
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Habla naturalmente o personaliza el diccionario con tus palabras clave
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+                    <button
+                      onClick={() => setTabModalVoz('dictar')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                        tabModalVoz === 'dictar'
+                          ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
+                          : 'text-slate-500'
+                      }`}
+                    >
+                      Dictado Rápido
+                    </button>
+                    <button
+                      onClick={() => setTabModalVoz('vocabulario')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                        tabModalVoz === 'vocabulario'
+                          ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
+                          : 'text-slate-500'
+                      }`}
+                    >
+                      Vocabulario ({vocabulario.length})
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      if (escuchandoVoz && reconocimientoRef) {
+                        try { reconocimientoRef.stop(); } catch (e) {}
+                      }
+                      setEscuchandoVoz(false);
+                      setModalVozAbierto(false);
+                    }}
+                    className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* PESTAÑA 1: DICTADO RÁPIDO E INTELIGENTE */}
+              {tabModalVoz === 'dictar' && (
+                <div className="mt-5 space-y-5">
+                  
+                  {/* Botón Central de Micrófono y Cuadro de Transcripción */}
+                  <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 space-y-4">
+                    <div className="flex flex-col sm:flex-row items-center gap-4">
+                      <button
+                        type="button"
+                        onClick={() => alternarReconocimientoVoz('inteligente')}
+                        className={`w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0 transition-all shadow-lg ${
+                          escuchandoVoz && campoDictadoActivo === 'inteligente'
+                            ? 'bg-rose-600 text-white ring-4 ring-rose-500/30 animate-pulse'
+                            : 'bg-gradient-to-br from-rose-500 to-amber-500 hover:from-rose-600 hover:to-amber-600 text-white'
+                        }`}
+                        title={escuchandoVoz ? 'Detener micrófono' : 'Presiona para hablar'}
+                      >
+                        {escuchandoVoz && campoDictadoActivo === 'inteligente' ? (
+                          <MicOff className="w-7 h-7" />
+                        ) : (
+                          <Mic className="w-7 h-7" />
+                        )}
+                      </button>
+
+                      <div className="flex-1 w-full">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                            {escuchandoVoz && campoDictadoActivo === 'inteligente'
+                              ? '🔴 Escuchando en español (es-MX)... habla ahora'
+                              : 'Transcripción de Voz / Entrada Natural'}
+                          </span>
+                          {textoDictado && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setTextoDictado('');
+                                setPropuestaVoz(null);
+                              }}
+                              className="text-xs text-slate-400 hover:text-rose-500"
+                            >
+                              Limpiar
+                            </button>
+                          )}
+                        </div>
+                        <textarea
+                          rows={2}
+                          value={textoDictado}
+                          onChange={(e) => setTextoDictado(aplicarVocabularioPersonalizado(e.target.value))}
+                          placeholder='Di o escribe por ejemplo: "Agendar mañana a las 4 de la tarde sesión fotográfica en Estudio Vértice de Arte y Video con prioridad alta"'
+                          className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Frases de prueba rápidas para simular dictado con 1 clic */}
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2">
+                        O prueba con una frase de voz de ejemplo:
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {EJEMPLOS_DICTADO.map((ej, i) => (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => {
+                              setTextoDictado(ej);
+                              procesarDictadoConIA(ej);
+                            }}
+                            className="text-left text-xs px-2.5 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-indigo-400 dark:hover:border-indigo-500 text-slate-600 dark:text-slate-300 transition-colors line-clamp-1"
+                          >
+                            🎙️ "{ej}"
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        disabled={procesandoIA || !textoDictado.trim()}
+                        onClick={() => procesarDictadoConIA(textoDictado)}
+                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white shadow-sm transition-all"
+                      >
+                        {procesandoIA ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Analizando ámbito, fecha y hora...
+                          </>
+                        ) : (
+                          <>
+                            <Wand2 className="w-4 h-4" />
+                            Extraer Datos del Dictado
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Tarjeta de Confirmación Editable antes de Guardar */}
+                  {propuestaVoz && (
+                    <div className="p-5 rounded-2xl border-2 border-indigo-500/40 bg-indigo-50/30 dark:bg-indigo-950/20 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+                          <Sparkles className="w-4 h-4" /> Compromiso Detectado (Editable antes de guardar)
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="sm:col-span-2">
+                          <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">
+                            Título Detectado
+                          </label>
+                          <input
+                            type="text"
+                            value={propuestaVoz.titulo}
+                            onChange={(e) => setPropuestaVoz({ ...propuestaVoz, titulo: e.target.value })}
+                            className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-semibold"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">
+                            Ámbito
+                          </label>
+                          <select
+                            value={propuestaVoz.ambito}
+                            onChange={(e) =>
+                              setPropuestaVoz({
+                                ...propuestaVoz,
+                                ambito: e.target.value,
+                                subcategoria: AMBITOS[e.target.value].subcategorias[0]
+                              })
+                            }
+                            className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold"
+                          >
+                            {Object.keys(AMBITOS).map((amb) => (
+                              <option key={amb} value={amb}>
+                                {amb}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">
+                            Subcategoría
+                          </label>
+                          <select
+                            value={propuestaVoz.subcategoria}
+                            onChange={(e) => setPropuestaVoz({ ...propuestaVoz, subcategoria: e.target.value })}
+                            className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold"
+                          >
+                            {(AMBITOS[propuestaVoz.ambito]?.subcategorias || []).map((s) => (
+                              <option key={s} value={s}>
+                                {s}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">
+                            Fecha y Prioridad
+                          </label>
+                          <div className="flex gap-2">
+                            <input
+                              type="date"
+                              value={propuestaVoz.fecha}
+                              onChange={(e) => setPropuestaVoz({ ...propuestaVoz, fecha: e.target.value })}
+                              className="flex-1 px-2.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs"
+                            />
+                            <select
+                              value={propuestaVoz.prioridad}
+                              onChange={(e) => setPropuestaVoz({ ...propuestaVoz, prioridad: e.target.value })}
+                              className="px-2.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs"
+                            >
+                              <option value="Alta">Alta</option>
+                              <option value="Media">Media</option>
+                              <option value="Baja">Baja</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">
+                            Horario
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="time"
+                              value={propuestaVoz.horaInicio}
+                              onChange={(e) => setPropuestaVoz({ ...propuestaVoz, horaInicio: e.target.value })}
+                              className="flex-1 px-2.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs"
+                            />
+                            <span className="text-xs text-slate-400">a</span>
+                            <input
+                              type="time"
+                              value={propuestaVoz.horaFin}
+                              onChange={(e) => setPropuestaVoz({ ...propuestaVoz, horaFin: e.target.value })}
+                              className="flex-1 px-2.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center justify-end gap-2.5 pt-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFormData({ ...propuestaVoz, completado: false });
+                            setCompromisoEditando(null);
+                            setModalVozAbierto(false);
+                            setModalAbierto(true);
+                          }}
+                          className="px-3.5 py-2 rounded-xl text-xs font-semibold border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                        >
+                          Abrir en Formulario Completo
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const id = `comp-${Date.now()}`;
+                            const nuevo = {
+                              ...propuestaVoz,
+                              id,
+                              completado: false,
+                              creadoEn: Date.now(),
+                              actualizadoEn: Date.now()
+                            };
+                            setCompromisos((prev) => [...prev, nuevo]);
+                            setModalVozAbierto(false);
+                            setTextoDictado('');
+                            setPropuestaVoz(null);
+                            mostrarMensaje('¡Compromiso por voz agendado con éxito!');
+                            if (user && db) {
+                              try {
+                                const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'compromisos', id);
+                                await setDoc(docRef, nuevo);
+                              } catch (e) {}
+                            }
+                          }}
+                          className="flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-md"
+                        >
+                          <Check className="w-4 h-4" /> Confirmar y Guardar Ahora
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* PESTAÑA 2: DICCIONARIO / VOCABULARIO PERSONALIZADO */}
+              {tabModalVoz === 'vocabulario' && (
+                <div className="mt-5 space-y-5">
+                  <form
+                    onSubmit={agregarTerminoVocabulario}
+                    className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 space-y-3"
+                  >
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">
+                      Añadir nuevo término personalizado al reconocimiento
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                      <input
+                        type="text"
+                        required
+                        value={nuevoTermino.termino}
+                        onChange={(e) => setNuevoTermino({ ...nuevoTermino, termino: e.target.value })}
+                        placeholder="Término exacto (ej. Fuerza Puma)"
+                        className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs"
+                      />
+                      <input
+                        type="text"
+                        value={nuevoTermino.variantes}
+                        onChange={(e) => setNuevoTermino({ ...nuevoTermino, variantes: e.target.value })}
+                        placeholder="Cómo suena (ej. fuersa puma, pumas)"
+                        className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs"
+                      />
+                      <div className="flex gap-2">
+                        <select
+                          value={nuevoTermino.categoria}
+                          onChange={(e) => setNuevoTermino({ ...nuevoTermino, categoria: e.target.value })}
+                          className="flex-1 px-2.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs"
+                        >
+                          <option value="Arte y Video">Arte y Video</option>
+                          <option value="Preparatoria Lázaro Cárdenas">Prepa Lázaro Cárdenas</option>
+                          <option value="Personal">Personal</option>
+                          <option value="General">General</option>
+                        </select>
+                        <button
+                          type="submit"
+                          className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold"
+                        >
+                          Añadir
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+
+                  <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                    {vocabulario.map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex items-center justify-between p-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900"
+                      >
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-bold text-slate-900 dark:text-white">
+                              {item.termino}
+                            </span>
+                            <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] font-semibold text-slate-600 dark:text-slate-300">
+                              {item.categoria}
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                            Corrige automáticamente: <span className="italic">{item.variantes}</span>
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => eliminarTerminoVocabulario(item.id)}
+                          className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                          title="Eliminar término"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* BOTÓN FLOTANTE DE DICTADO RÁPIDO POR VOZ */}
+        <button
+          onClick={() => {
+            setPropuestaVoz(null);
+            setTabModalVoz('dictar');
+            setModalVozAbierto(true);
+          }}
+          className="fixed bottom-6 left-6 z-40 flex items-center gap-2.5 px-4 py-3.5 rounded-full bg-gradient-to-r from-rose-600 to-amber-500 hover:from-rose-700 hover:to-amber-600 text-white font-bold text-xs sm:text-sm shadow-2xl hover:scale-105 transition-all"
+          title="Dictado Rápido por Voz"
+        >
+          <Mic className="w-5 h-5" />
+          <span>Dictado por Voz</span>
+        </button>
+
+        {/* ==========================================
+            MODAL DE CONFIRMACIÓN PARA ELIMINAR
+           ========================================== */}
+        {confirmarEliminarId && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-sm w-full p-6 shadow-2xl text-center">
+              <div className="w-12 h-12 rounded-2xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto mb-3">
+                <AlertCircle className="w-6 h-6" />
+              </div>
+              <h4 className="text-base font-bold text-slate-900 dark:text-white">
+                ¿Eliminar este compromiso?
+              </h4>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                Esta acción quitará el registro de tu agenda de forma permanente.
+              </p>
+              <div className="mt-5 flex items-center justify-center gap-2.5">
+                <button
+                  onClick={() => setConfirmarEliminarId(null)}
+                  className="flex-1 py-2.5 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => eliminarCompromiso(confirmarEliminarId)}
+                  className="flex-1 py-2.5 rounded-xl text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white"
+                >
+                  Sí, eliminar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* PIE DE PÁGINA */}
+        <footer className="mt-auto border-t border-slate-200/80 dark:border-slate-800/80 py-4 px-6 text-center text-xs text-slate-400 dark:text-slate-500 flex flex-wrap items-center justify-between max-w-7xl w-full mx-auto gap-2">
+          <span>Sistema de Agenda Integral • 3 Ámbitos</span>
+          <span className="flex items-center gap-1.5">
+            <span className={`w-2 h-2 rounded-full ${sincronizadoNube ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+            {sincronizadoNube ? 'Respaldo activo en la nube' : 'Modo en sesión activa'}
+          </span>
+        </footer>
+      </div>
+    </div>
+  );
+}
