@@ -1,5 +1,5 @@
 {
-  "actualizadoEn": 1794602837787,
+  "actualizadoEn": 1794953632967,
   "compromisos": [
     {
       "titulo": "TERMINAR PLEANEACIONES 3ER PARCIAL",
@@ -26,6 +26,19 @@
       "completado": false,
       "id": "comp-1794602837787",
       "actualizadoEn": 1794602837787
+    },
+    {
+      "titulo": "INSTALAR SONIDO MTRA. RENEE",
+      "ambito": "Preparatoria Lázaro Cárdenas",
+      "subcategoria": "Administrativo",
+      "fecha": "2026-11-19",
+      "horaInicio": "08:50",
+      "horaFin": "15:30",
+      "prioridad": "Media",
+      "notas": "",
+      "completado": false,
+      "id": "comp-1794953632966",
+      "actualizadoEn": 1794953632967
     }
   ],
   "vocabulario": [
