@@ -1,5 +1,5 @@
 {
-  "actualizadoEn": 1794953632967,
+  "actualizadoEn": 1794953636075,
   "compromisos": [
     {
       "titulo": "TERMINAR PLEANEACIONES 3ER PARCIAL",
@@ -23,9 +23,9 @@
       "horaFin": "10:30",
       "prioridad": "Media",
       "notas": "",
-      "completado": false,
+      "completado": true,
       "id": "comp-1794602837787",
-      "actualizadoEn": 1794602837787
+      "actualizadoEn": 1794953636075
     },
     {
       "titulo": "INSTALAR SONIDO MTRA. RENEE",
