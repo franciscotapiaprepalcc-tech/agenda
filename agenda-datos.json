@@ -1,5 +1,5 @@
 {
-  "actualizadoEn": 1795033335017,
+  "actualizadoEn": 1795033344579,
   "compromisos": [
     {
       "titulo": "TERMINAR PLEANEACIONES 3ER PARCIAL",
@@ -13,19 +13,6 @@
       "completado": false,
       "id": "comp-1794602057152",
       "actualizadoEn": 1794602057152
-    },
-    {
-      "titulo": "IMPRESIONES DEL 20 Y DEL 21",
-      "ambito": "Arte y Video",
-      "subcategoria": "Impresión Fine Art / Lona",
-      "fecha": "2026-11-17",
-      "horaInicio": "09:00",
-      "horaFin": "10:30",
-      "prioridad": "Media",
-      "notas": "",
-      "completado": true,
-      "id": "comp-1794602837787",
-      "actualizadoEn": 1794953636075
     },
     {
       "titulo": "INSTALAR SONIDO MTRA. RENEE",
