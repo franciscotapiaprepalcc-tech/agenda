@@ -1,5 +1,5 @@
 {
-  "actualizadoEn": 1795025755336,
+  "actualizadoEn": 1795033335017,
   "compromisos": [
     {
       "titulo": "TERMINAR PLEANEACIONES 3ER PARCIAL",
@@ -52,6 +52,19 @@
       "completado": false,
       "id": "comp-1795025755336",
       "actualizadoEn": 1795025755336
+    },
+    {
+      "titulo": "REVISAR LAPTOPS OFICINA",
+      "ambito": "Preparatoria Lázaro Cárdenas",
+      "subcategoria": "Administrativo",
+      "fecha": "2026-11-24",
+      "horaInicio": "09:00",
+      "horaFin": "22:30",
+      "prioridad": "Media",
+      "notas": "",
+      "completado": false,
+      "id": "comp-1795033335015",
+      "actualizadoEn": 1795033335015
     }
   ],
   "vocabulario": [
