@@ -1,5 +1,5 @@
 {
-  "actualizadoEn": 1794953636075,
+  "actualizadoEn": 1795025755336,
   "compromisos": [
     {
       "titulo": "TERMINAR PLEANEACIONES 3ER PARCIAL",
@@ -39,6 +39,19 @@
       "completado": false,
       "id": "comp-1794953632966",
       "actualizadoEn": 1794953632967
+    },
+    {
+      "titulo": "CAPACITACIÓN DE TURISMO",
+      "ambito": "Preparatoria Lázaro Cárdenas",
+      "subcategoria": "Proyecto Educativo / Concurso",
+      "fecha": "2026-11-23",
+      "horaInicio": "16:00",
+      "horaFin": "20:00",
+      "prioridad": "Alta",
+      "notas": "CAPACITACIÓN DE TURISMO EN CABILDO - ANFITRIONES TURISTICO \nCURP\nCOMPROBANTE DE DOMICILIO\n23 Y 24",
+      "completado": false,
+      "id": "comp-1795025755336",
+      "actualizadoEn": 1795025755336
     }
   ],
   "vocabulario": [
